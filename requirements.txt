@@ -1,0 +1,8 @@
+streamlit
+pandas
+llama-index
+llama-index-llms-ollama
+langgraph
+langchain
+langchain-ollama
+ckanapi
