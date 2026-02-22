@@ -126,5 +126,5 @@ if __name__ == "__main__":
     #print(fetch_stm_data().head())
     
     #print(fetch_collisions_data().head())
-    print(fetch_weather_data().head())
+    #print(fetch_weather_data().head())
     #print(fetch_311().head())
