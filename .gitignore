@@ -2,3 +2,6 @@
 *.csv
 
 data/raw/stm/
+
+.DS_Store
+__pycache__
