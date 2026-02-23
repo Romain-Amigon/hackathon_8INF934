@@ -1,44 +1,33 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Feb 23 21:47:10 2026
+Created on Mon Feb 23 23:37:06 2026
 
 @author: amigo
 """
 
-import os
 import asyncio
 import nest_asyncio
 import pandas as pd
-from dotenv import load_dotenv
 from llama_index.experimental.query_engine import PandasQueryEngine
-from llama_index.llms.gemini import Gemini
+from llama_index.llms.ollama import Ollama
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.core.agent.workflow import AgentWorkflow, ReActAgent
-from llama_index.llms.groq import Groq 
-import time
 
-load_dotenv()
 nest_asyncio.apply()
 
 df_311 = pd.read_csv("../../data/raw/requetes_311.csv", low_memory=False)
 df_coll = pd.read_csv("../../data/raw/collisions_clean.csv")
 df_meteo = pd.read_csv("../../data/raw/weather_montreal.csv")
 
-llm = Groq(
-    model="llama-3.1-8b-instant", 
-    api_key=os.getenv("GROQ_API_KEY"),
-    max_retries=5 # Augmente le nombre de tentatives en cas de 429
-)
+llm = Ollama(model="qwen2.5", request_timeout=300.0)
 
 instruction_stricte = """\
-You are an expert Pandas developer.
-Your task: Output a SINGLE line of Python code that works with a DataFrame named `df`.
-Constraint 1: The output must be a valid Python expression (one-liner).
-Constraint 2: DO NOT assign the result to a variable (NO 'df = ...').
-Constraint 3: Output ONLY the code. No explanations, no markdown, no triple backticks.
-
-Example for counting: df[df['ACTI_NOM'] == 'Nid-de-poule'].shape[0]
-Example for sum: df['NB_MORTS'].sum()
+You are working with a pandas DataFrame named `df`.
+1. Convert the query to executable Python code using pandas.
+2. The final line of code should be a Python expression that can be called with the `eval()` function.
+3. The code must ALWAYS start with the variable `df`.
+4. PRINT ONLY THE EXPRESSION.
+5. DO NOT RETURN ANY TEXT, EXPLANATIONS, OR MARKDOWN. ONLY THE RAW PYTHON EXPRESSION.
 """
 
 engine_311 = PandasQueryEngine(df=df_311, llm=llm, instruction_str=instruction_stricte)
@@ -84,7 +73,6 @@ async def main():
     user_prompt = "Cherche d'abord le nombre exact de 'Nid-de-poule' dans le dataset 311. Ensuite, calcule la somme des morts dans le dataset des collisions. Donne-moi les deux chiffres exacts."
     reponse = await workflow.run(user_msg=user_prompt)
     print(str(reponse))
-    time.sleep(15)
 
 if __name__ == "__main__":
     asyncio.run(main())
