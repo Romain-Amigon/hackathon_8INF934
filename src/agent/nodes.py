@@ -81,10 +81,61 @@ agent_config = ReActAgent(
 workflow = AgentWorkflow(agents=[agent_config], root_agent="agent_donnees")
 
 async def main():
-    user_prompt = "Cherche d'abord le nombre exact de 'Nid-de-poule' dans le dataset 311. Ensuite, calcule la somme des morts dans le dataset des collisions. Donne-moi les deux chiffres exacts."
+    user_prompt = "Combien d'accidents y a-t-il eu les jours ou il y a eu plus de 10cm de neige"
+    #"Cherche d'abord le nombre exact de 'Nid-de-poule' dans le dataset 311. Ensuite, calcule la somme des morts dans le dataset des collisions. Donne-moi les deux chiffres exacts."
     reponse = await workflow.run(user_msg=user_prompt)
     print(str(reponse))
-    time.sleep(15)
 
+
+
+
+tests_evaluation = {
+    "Combien de morts au total dans les collisions ?": 269,
+    "Nombre de requêtes pour Nid-de-poule ?": 112791,
+    "Combien de nids-de-poule ont un statut 'Terminé' ?":95963,
+    "Combien de nids-de-poule ont été réparé ?":95963,
+    "Combien d'accidents y a-t-il eu les jours ou il y a eu plus de 10cm de neige": 1875,
+    "Combien d'accidents y a-t-il eu de moins en 2020 par rapport à 2013 ": 18321
+}
+
+async def evaluer_agent(tests):
+    resultats_logs = []
+    
+    for question, valeur_attendue in tests.items():
+        print(f"Évaluation : {question}")
+        
+        # On demande explicitement le chiffre seul à l'agent
+        prompt_brut = f"{question}"
+        
+        try:
+            reponse = await workflow.run(user_msg=prompt_brut)
+            valeur_calculee = str(reponse).strip()
+            
+            # Stockage pour analyse
+            resultats_logs.append({
+                "question": question,
+                "attendu": valeur_attendue,
+                "obtenu": valeur_calculee,
+                "succes": str(valeur_attendue) in valeur_calculee
+            })
+            
+            # Petit délai pour le quota Groq
+            await asyncio.sleep(2) 
+            
+        except Exception as e:
+            print(f"Erreur sur '{question}': {e}")
+
+    return resultats_logs
+
+# Dans ton bloc main :
+if __name__ == "__main__":
+    resultats = asyncio.run(evaluer_agent(tests_evaluation))
+    
+    # Affichage sous forme de table pour ton rapport
+    df_eval = pd.DataFrame(resultats)
+    print("\n--- RAPPORT D'ÉVALUATION ---")
+    print(df_eval)
+"""
 if __name__ == "__main__":
     asyncio.run(main())
+"""    
