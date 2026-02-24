@@ -1,8 +1,9 @@
-streamlit
+transformers<=4.43.0
+sentence-transformers<=2.7.0
 pandas
-llama-index
+sqlalchemy
+llama-index==0.10.58
 llama-index-llms-ollama
-langgraph
-langchain
-langchain-ollama
-ckanapi
+llama-index-embeddings-huggingface
+llama-index-experimental
+nest-asyncio

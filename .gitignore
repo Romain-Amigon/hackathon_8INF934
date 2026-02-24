@@ -2,3 +2,5 @@
 *.csv
 
 data/raw/stm/
+todo
+mobility.db
