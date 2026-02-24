@@ -7,3 +7,6 @@ llama-index-llms-ollama
 llama-index-embeddings-huggingface
 llama-index-experimental
 nest-asyncio
+streamlit
+plotly
+langgraph
