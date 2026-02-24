@@ -15,6 +15,31 @@ from llama_index.core.tools import QueryEngineTool, ToolMetadata
 load_dotenv()
 nest_asyncio.apply()
 
+from llama_index.core.base.llms.types import ChatMessage, CompletionResponse
+
+from pydantic import Field
+import time
+
+class RateLimitedGroq(Groq):
+    # On déclare le champ pour que Pydantic l'accepte
+    delay_seconds: float = Field(default=2.0, description="Délai entre les appels API")
+
+    def __init__(self, delay_seconds: float = 2.0, **kwargs):
+        # On passe delay_seconds au constructeur de super()
+        super().__init__(delay_seconds=delay_seconds, **kwargs)
+
+    async def achat(self, messages, **kwargs):
+        await asyncio.sleep(self.delay_seconds)
+        return await super().achat(messages, **kwargs)
+
+    async def acomplete(self, prompt, **kwargs):
+        await asyncio.sleep(self.delay_seconds)
+        return await super().acomplete(prompt, **kwargs)
+
+    def chat(self, messages, **kwargs):
+        time.sleep(self.delay_seconds)
+        return super().chat(messages, **kwargs)
+
 # --- CONFIGURATION ET CHARGEMENT ---
 def setup_agent():
     # Chargement des données
@@ -22,7 +47,7 @@ def setup_agent():
     df_coll = pd.read_csv("../../data/raw/collisions_clean.csv")
     df_meteo = pd.read_csv("../../data/raw/weather_montreal.csv")
 
-    llm = Groq(model="llama-3.1-8b-instant", temperature=0.0)
+    llm = RateLimitedGroq(model="llama-3.1-8b-instant", temperature=0.0, delay_seconds=2.0)
 
     instruction_stricte = """Output a SINGLE line of Python code using 'df'. 
     No 'df = ...', no markdown. Just the expression."""
@@ -37,9 +62,53 @@ def setup_agent():
     
     
     tools = [
-        QueryEngineTool(query_engine=e_311, metadata=ToolMetadata(name="donnees_311", description="Requêtes 311")),
-        QueryEngineTool(query_engine=e_coll, metadata=ToolMetadata(name="donnees_coll", description="Collisions")),
-        QueryEngineTool(query_engine=e_meteo, metadata=ToolMetadata(name="donnees_meteo", description="Météo"))
+        QueryEngineTool(
+            query_engine=e_311, 
+            metadata=ToolMetadata(
+                name="donnees_311",
+                description="""Contient les requêtes citoyennes envoyées au 311 à Montréal.
+                Colonnes clés : 
+                - ACTI_NOM : Nom de l'activité. Valeurs exactes à utiliser pour filtrer : 'Nid-de-poule', 'Déneigement', 'Supa-Achat'.
+                - DDS_DATE_CREATION : Date de création de la demande (format 'YYYY-MM-DD').
+                - DERNIER_STATUT : Statut de la requête (ex: 'Terminée', 'Annulée').
+                - DATE_DERNIER_STATUT : date de la dernière mise à jour
+                - LOC_LONG, LOC_LAT : Coordonnées géographiques.
+                Utilise cet outil pour quantifier les problèmes signalés par les citoyens (notamment les nids-de-poule) ou analyser les délais de traitement via DATE_DERNIER_STATUT."""
+            )
+        ),
+
+        QueryEngineTool(
+            query_engine=e_coll,
+            metadata=ToolMetadata(
+                name="donnees_collisions", 
+                description="""Base de données des accidents et collisions routières à Montréal. 
+                IMPORTANT : 
+                    - Chaque ligne du DataFrame représente UN SEUL accident. 
+                    - Pour compter le nombre d'accidents, utilise len(df) ou .shape[0].
+                    - Ne sommez PAS NB_VICTIMES_TOTAL sauf si on demande spécifiquement le nombre de blessés.
+                Colonnes clés : 
+                - DATE: Date de l'accident (format 'YYYY-MM-DD'). Utilise cette colonne pour filtrer par année ou par mois.
+                - GRAVITE : Gravité de l'accident ('Dégâts matériels seulement', 'Léger', 'Grave', 'Mortel').
+                - NB_MORTS, NB_VICTIMES_TOTAL, NB_BLESSES_GRAVES : Nombre de victimes (Colonnes numériques).
+                - LOC_LAT, LOC_LONG : Coordonnées géographiques.
+                Utilise cet outil pour calculer des bilans de sécurité routière, identifier des zones accidentogènes ou comparer la mortalité entre différentes années."""
+            )
+        ),
+
+        QueryEngineTool(
+            query_engine=e_meteo,
+            metadata=ToolMetadata(
+                name="donnees_meteo",
+                description="""Historique météorologique quotidien de Montréal.
+                Colonnes clés :
+                - DATE : Date de l'observation (format 'YYYY-MM-DD'). Pivot central pour les jointures avec les autres outils.
+                - temperature_2m_max, temperature_2m_min : Températures extrêmes de la journée (°C).
+                - precipitation_sum : Quantité totale de pluie (en mm).
+                - snowfall_sum : Quantité totale de neige (en cm).
+                Utilise cet outil pour corréler les conditions climatiques (tempêtes de neige, verglas) avec le volume de requêtes 311 ou le nombre d'accidents de la route."""
+            )
+        )
+    
     ]
 
     return ReActAgent(
@@ -48,7 +117,7 @@ def setup_agent():
         system_prompt="Tu es un analyste de données strict. Tu utilises tes outils un par un. Ne génère JAMAIS de texte à trous. Attends le retour numérique de l'outil avant de formuler ta réponse finale.",
         tools=tools,
         llm=llm,
-        max_iterations=3
+        max_iterations=4
     ), engines
 
 
@@ -129,9 +198,10 @@ async def main():
     app = create_graph(agent_instance,engines)
     
     #prompt =input("Bonjour, comment puis-je vous aider ?\n")
-    prompt="Nombre de requêtes pour Nid-de-poule dans le dataset 311?"
+    prompt="Combien d'accidents y a-t-il eu les jours ou il y a eu plus de 10cm de neige"
     reponse = await run(app, prompt)
     
+    print('----------')
     print(reponse)
 
 if __name__ == "__main__":
