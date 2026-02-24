@@ -5,10 +5,7 @@ services:
     volumes:
       - .:/app
       - ./data:/app/data
-    environment:
-      - OLLAMA_HOST=http://host.docker.internal:11434
-      - WATCHFILES_FORCE_POLLING=true
-    network_mode: "host" # Permet d'accéder à Ollama sur l'hôte facilement
+    network_mode: "host"
     deploy:
       resources:
         reservations:
@@ -16,6 +13,4 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    stdin_open: true 
-    tty: true
-    command: python src/agent/test_question_sql.py
+    command: python /app/src/agent/test_langraph.py

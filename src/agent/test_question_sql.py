@@ -16,7 +16,6 @@ Settings.embed_model = HuggingFaceEmbedding(
     device=device
 )
 
-
 Settings.llm = Ollama(
     model="qwen2.5-coder:7b", 
     base_url="http://127.0.0.1:11434", 
@@ -43,19 +42,37 @@ query_engine = NLSQLTableQueryEngine(
 )
 
 def main():
-    question = "Dans la table requetes_311, quel est le top 3 des ACTI_NOM les plus fréquents ?"
+    # Exemple de question complexe pour tester ton moteur
+    question = "Quels sont les 3 types de requêtes 311 les plus fréquents et y a-t-il une corrélation visuelle avec le top des collisions ?"
     
     try:
-        print(f"\n--- ENVOI DE LA QUESTION À OLLAMA ---\n{question}")
-        reponse = query_engine.query(question)
+        print(f"\n[1/3]  RÉFLEXION : {question}")
         
-        print(f"\n--- RÉPONSE FINALE ---\n{reponse}")
+        # LlamaIndex génère le SQL, l'exécute ET génère la réponse ici :
+        reponse_objet = query_engine.query(question)
         
-        if hasattr(reponse, "metadata") and reponse.metadata.get('sql_query'):
-            print(f"\n--- SQL GÉNÉRÉ DANS DOCKER ---\n{reponse.metadata.get('sql_query')}")
+        # --- CRITÈRE 2 : VALIDATEUR & AFFICHAGE DU RÉSULTAT ---
+        print("\n[2/3]  EXÉCUTION SQL RÉUSSIE")
+        if hasattr(reponse_objet, "metadata") and reponse_objet.metadata.get('sql_query'):
+            print(f"     Requête exécutée : \n     {reponse_objet.metadata.get('sql_query')}")
+        
+        print(f"\n--- RÉPONSE DE L'AGENT ---\n{reponse_objet.response}")
+
+        # --- CRITÈRE 4 : MODE CONTRADICTEUR  ---
+        print("\n[3/3]  ANALYSE CRITIQUE (Contradicteur)")
+        
+        prompt_critique = f"""
+        En tant qu'expert en mobilité urbaine, analyse de façon critique cette réponse : '{reponse_objet.response}'
+        Identifie :
+        1. Une limite liée aux données (ex: saisonnalité, données s'arrêtant en 2021).
+        2. Un risque d'interprétation.
+        Sois bref et percutant.
+        """
+        # On réutilise Ollama pour la critique
+        critique = Settings.llm.complete(prompt_critique)
+        print(f"{critique}")
             
     except Exception as e:
-        print(f" Erreur lors de l'exécution : {e}")
+        print(f"❌ Erreur lors de l'exécution : {e}")
 
-if __name__ == "__main__":
-    main()
+main()
