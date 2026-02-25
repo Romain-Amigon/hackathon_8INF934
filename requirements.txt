@@ -22,3 +22,10 @@ matplotlib
 SpeechRecognition==3.10.1
 gTTS==2.5.1
 llama-index-llms-groq
+
+python-dotenv          # Pour load_dotenv()
+pydantic               # Pour la classe RateLimitedGroq (Field)
+pydantic-settings      # Souvent requis avec les dernières versions de LlamaIndex
+asyncio                # (Généralement inclus, mais bon à confirmer)
+pydub                  # Si tu manipules des fichiers audio (très probable pour l'UI)
+pydeck                 # Requis par ton code UI (st.pydeck_chart)

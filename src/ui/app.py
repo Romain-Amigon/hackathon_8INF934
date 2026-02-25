@@ -11,10 +11,30 @@ from llama_index.core.query_engine import NLSQLTableQueryEngine
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from sqlalchemy import create_engine, inspect
-
 from sentence import Sentence
 import time
+import sys
+from pathlib import Path
 
+# On récupère la racine du projet (2 niveaux au-dessus de src/ui/app.py)
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.append(str(ROOT))
+
+# Maintenant tu peux importer normalement
+from src.agent.main import setup_agent, run
+
+
+# ============================================================
+# 1) INITIALISATION DE L'AGENT (GROQ + PROMPT ENGINEERING)
+# ============================================================
+@st.cache_resource
+def get_agent_resources():
+    # Initialise le LLM Groq avec les moteurs de requêtes Pandas et le system prompt
+    llm, engines, tools, system_prompt = setup_agent()
+    return llm, system_prompt
+
+llm, system_prompt = get_agent_resources()
 
 
 # ============================================================
@@ -383,59 +403,33 @@ with tabs[2]:
     )
     st.dataframe(comp, use_container_width=True)
 
-
 # ============================================================
-# 12) TAB 4 — CHAT NLSQL
+# 12) TAB 4 — CHAT LANGGRAPH (Remplace NLSQL)
 # ============================================================
 with tabs[3]:
-    st.subheader("Questions en langage naturel (génération SQL)")
+    st.subheader("Assistant Intelligent (LangGraph + Groq)")
 
-    question = st.text_input("Posez votre question :", key="nl_question")
+    question = st.text_input("Posez votre question à l'analyste :", key="nl_question")
 
     if st.button("Analyser", key="nl_btn"):
-        max_retries = 3
-        current_query = question
-
-        for attempt in range(max_retries):
-            with st.spinner(f"Tentative {attempt+1}/{max_retries}..."):
+        if question:
+            with st.spinner("L'agent analyse les fichiers CSV et réfléchit..."):
                 try:
-                    response_obj = query_engine.query(current_query)
+                    # Exécution asynchrone de ton graphe
+                    import asyncio
+                    response_text = asyncio.run(run(llm, question, system_prompt))
 
                     col1, col2 = st.columns([2, 1])
                     with col1:
-                        st.success("Résultat trouvé")
-                        st.write(response_obj.response)
-                        with st.expander("Requête SQL utilisée"):
-                            st.code(response_obj.metadata.get("sql_query"), language="sql")
+                        st.chat_message("assistant").write(response_text)
+                        st.success("Analyse terminée")
 
                     with col2:
-                        st.subheader("Critique")
-                        prompt_critique = (
-                            f"Analyse cette réponse : '{response_obj.response}'. "
-                            f"Sois critique sur la précision, et indique les limites."
-                        )
-                        st.warning(llm.complete(prompt_critique).text)
-                    break
-
+                        st.info("💡 **Note :** Cet agent utilise Llama-3.1 via Groq pour manipuler directement les DataFrames (Pandas) des collisions, du 311 et de la météo.")
+                
                 except Exception as e:
-                    error_msg = str(e)
-                    if attempt < max_retries - 1:
-                        current_query = f"""
-ERREUR PRÉCÉDENTE : {error_msg}
-
-CONSIGNES :
-- Collisions.DT_ACCDN peut être au format YYYY/MM/DD -> normalise en YYYY-MM-DD si tu fais des DATE().
-- Jointures météo/incidents sur DATE() (pas time = timestamp strict).
-- Utilise uniquement les colonnes existantes.
-
-STRUCTURE RÉELLE :
-{get_real_schema()}
-
-QUESTION INITIALE : {question}
-"""
-                    else:
-                        st.error(f"Échec final. Erreur: {error_msg}")
-
+                    st.error(f"Erreur lors de l'appel à l'agent : {e}")
+                    
 # ============================================================
 # 13) TAB 5 — CHAT NLSQL (VOCAL)
 # ============================================================
@@ -472,47 +466,33 @@ with tabs[4]:
                 f.write(uploaded_audio.getbuffer())
             
             transcript = voice_manager.toText(temp_path)
-            
-            if "[Error]" in transcript:
-                status.update(label="Erreur de transcription", state="error")
-                st.error(f"Détails : {transcript}")
-            else:
-                st.write(f"Compris : {transcript}")
-                st.write("Analyse des données en cours...")
-                
-                max_retries = 3
-                current_query = f"{transcript}\n(Consigne stricte : Ne retourne QUE la réponse en français naturel. N'inclus AUCUN code SQL dans ta réponse)."
-
-                for attempt in range(max_retries):
-                    try:
-                        response_obj = query_engine.query(current_query)
-                        final_response = response_obj.response
-                        break
-                    except Exception as e:
-                        if attempt < max_retries - 1:
-                            st.write(f"Ajustement de la requête (tentative {attempt+1})...")
-                            current_query = f"ERREUR SQL: {str(e)}\nSTRUCTURE: {get_real_schema()}\nQUESTION: {transcript}\n(Rappel : pas de SQL dans la réponse textuelle finale)."
-                        else:
-                            st.error("Impossible d'extraire les données après plusieurs tentatives.")
-
-                if final_response:
-                    st.write("🔊 Génération de la réponse vocale...")
-                    voice_manager.toSpeech(final_response, audio_file_path)
-                    status.update(label="Analyse terminée !", state="complete")
-
-        # --- AFFICHAGE ET LECTURE (HORS DU STATUS) ---
-        if final_response:
-            # On affiche la conversation
-            st.chat_message("user").write(transcript)
-            st.chat_message("assistant").write(final_response)
-            
-            time.sleep(0.5)
-            
-            # Lecture du fichier
-            if Path(audio_file_path).exists():
-                with open(audio_file_path, "rb") as audio_file:
-                    audio_bytes = audio_file.read()
-                
-                st.audio(audio_bytes, format="audio/mpeg", autoplay=False)
+            # Dans le Tab 5, remplace la boucle de retry par ceci :
+            if transcript and "[Error]" not in transcript:
+                st.write("Analyse via LangGraph...")
+                try:
+                    import asyncio
+                    # Appel à ton agent avec le transcript vocal
+                    final_response = asyncio.run(run(llm, transcript, system_prompt))
+                    
+                    if final_response:
+                        st.write("Génération de la réponse vocale...")
+                        voice_manager.toSpeech(final_response, audio_file_path)
+                        status.update(label="Analyse terminée !", state="complete")
+                except Exception as e:
+                    st.error(f"Erreur agent: {e}")
+                    # --- AFFICHAGE ET LECTURE (HORS DU STATUS) ---
+                    if final_response:
+                        # On affiche la conversation
+                        st.chat_message("user").write(transcript)
+                        st.chat_message("assistant").write(final_response)
+                        
+                        time.sleep(0.5)
+                        
+                        # Lecture du fichier
+                        if Path(audio_file_path).exists():
+                            with open(audio_file_path, "rb") as audio_file:
+                                audio_bytes = audio_file.read()
+                            
+                            st.audio(audio_bytes, format="audio/mpeg", autoplay=False)
 
 st.caption("Hackathon IA 2026 - Prototype fonctionnel")

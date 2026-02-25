@@ -1,7 +1,7 @@
 # agent/graph.py
 from langgraph.graph import StateGraph, END
-from state import AgentState
-from nodes import Nodes
+from .state import AgentState
+from .nodes import Nodes
 
 def create_graph(agent_instance, engines_dict): #: ReActAgent
 

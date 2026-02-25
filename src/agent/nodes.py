@@ -1,7 +1,7 @@
 # agent/nodes.py
 import os
 from llama_index.core.agent import ReActAgent
-from state import AgentState
+from .state import AgentState
 import asyncio
 
 import pandas as pd
