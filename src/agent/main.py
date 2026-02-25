@@ -155,22 +155,67 @@ async def run_benchmarks(llm, system_prompt):
 
     return pd.DataFrame(resultats_logs)
 
-async def run(llm, prompt: str, system_prompt: str = "") -> str:
+async def run(llm, prompt: str, engines: dict, system_prompt: str = "") -> str:
     """
-    Appel simple à l'API Groq avec le prompt engineering.
+    Appel à l'API Groq avec accès réel aux données via les PandasQueryEngines.
     
     Args:
         llm: Objet Groq configuré
         prompt: Question/prompt de l'utilisateur
+        engines: Dict contenant les PandasQueryEngines {"311": engine, "coll": engine, "meteo": engine}
         system_prompt: Instructions systèmes pour le LLM
         
     Returns:
-        Réponse textuelle de Groq
+        Réponse textuelle de Groq avec résultats réels des bases de données
     """
     try:
-        full_prompt = f"{system_prompt}\n\nQuestion: {prompt}" if system_prompt else prompt
-        response = llm.complete(full_prompt)
-        return str(response.text).strip() if hasattr(response, 'text') else str(response).strip()
+        # Étape 1 : Groq analyse la question et choisit le bon engine
+        analysis_prompt = f"""{system_prompt}
+
+Question utilisateur: {prompt}
+
+Réponds EXACTEMENT le nom du moteur à utiliser parmi : donnees_311, donnees_collisions, donnees_meteo"""
+        
+        engine_choice_response = llm.complete(analysis_prompt)
+        engine_choice = str(engine_choice_response.text).strip().lower() if hasattr(engine_choice_response, 'text') else ""
+        
+        # Étape 2 : Mapper le choix au bon engine
+        engine_map = {
+            "donnees_311": engines["311"],
+            "donnees_collisions": engines["coll"],
+            "donnees_meteo": engines["meteo"]
+        }
+        
+        # Trouver l'engine approprié
+        selected_engine = None
+        for key in engine_map:
+            if key in engine_choice:
+                selected_engine = engine_map[key]
+                break
+        
+        # Si pas d'engine trouvé, utiliser celui de la météo par défaut
+        if selected_engine is None:
+            selected_engine = engines["meteo"]
+        
+        # Étape 3 : Exécuter la requête sur les données réelles
+        try:
+            data_response = selected_engine.query(prompt)
+            data_result = str(data_response).strip()
+        except Exception as e:
+            data_result = f"Erreur lors de l'exécution sur les données : {str(e)}"
+        
+        # Étape 4 : Groq formule la réponse finale avec les données réelles
+        final_prompt = f"""{system_prompt}
+
+Données brutes obtenues : {data_result}
+
+Question originale : {prompt}
+
+Formule une réponse factuelle basée sur les données obtenues. Sois précis et objectif."""
+        
+        final_response = llm.complete(final_prompt)
+        return str(final_response.text).strip() if hasattr(final_response, 'text') else str(final_response).strip()
+        
     except Exception as e:
         return f"Erreur lors de l'appel à Groq : {str(e)}"
 
@@ -178,7 +223,7 @@ async def run(llm, prompt: str, system_prompt: str = "") -> str:
 if __name__ == "__main__":
     # Test simple
     llm, engines, tools, system_prompt = setup_agent()
-    question = "Combien d'accidents y a-t-il eu les jours ou il y a eu plus de 10cm de neige"
-    reponse = asyncio.run(run(llm, question, system_prompt))
+    question = "Nombre de jours en dessous de 0 degrés à Montréal"
+    reponse = asyncio.run(run(llm, question, engines, system_prompt))
     print(f"Question: {question}")
     print(f"Réponse: {reponse}")

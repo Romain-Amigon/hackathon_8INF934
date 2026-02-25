@@ -26,15 +26,15 @@ from src.agent.main import setup_agent, run
 
 
 # ============================================================
-# 1) INITIALISATION DE L'AGENT (GROQ + PROMPT ENGINEERING)
+# 1) INITIALISATION DE L'AGENT (GROQ + PROMPT ENGINEERING + DONNÉES)
 # ============================================================
 @st.cache_resource
 def get_agent_resources():
-    # Initialise le LLM Groq avec les moteurs de requêtes Pandas et le system prompt
+    # Initialise le LLM Groq avec accès aux données réelles et le system prompt
     llm, engines, tools, system_prompt = setup_agent()
-    return llm, system_prompt
+    return llm, engines, system_prompt
 
-llm, system_prompt = get_agent_resources()
+llm, engines, system_prompt = get_agent_resources()
 
 
 # ============================================================
@@ -417,7 +417,7 @@ with tabs[3]:
                 try:
                     # Exécution asynchrone de ton graphe
                     import asyncio
-                    response_text = asyncio.run(run(llm, question, system_prompt))
+                    response_text = asyncio.run(run(llm, question, engines, system_prompt))
 
                     col1, col2 = st.columns([2, 1])
                     with col1:
@@ -472,7 +472,7 @@ with tabs[4]:
                 try:
                     import asyncio
                     # Appel à ton agent avec le transcript vocal
-                    final_response = asyncio.run(run(llm, transcript, system_prompt))
+                    final_response = asyncio.run(run(llm, transcript, engines, system_prompt))
                     
                     if final_response:
                         st.write("Génération de la réponse vocale...")
