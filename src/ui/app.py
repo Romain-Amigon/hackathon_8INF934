@@ -12,6 +12,10 @@ from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from sqlalchemy import create_engine, inspect
 
+from sentence import Sentence
+import time
+
+
 
 # ============================================================
 # 0) CONFIG STREAMLIT
@@ -206,7 +210,7 @@ def pearson(a: pd.Series, b: pd.Series) -> float | None:
 # ============================================================
 # 8) UI — TABS
 # ============================================================
-tabs = st.tabs(["Collisions (Carte)", "311 (Motifs)", "Météo ↔ Incidents", "Question (NLSQL)"])
+tabs = st.tabs(["Collisions (Carte)", "311 (Motifs)", "Météo ↔ Incidents", "Question (NLSQL)", "Question (NLSQL) Audio"])
 
 
 # ============================================================
@@ -431,5 +435,84 @@ QUESTION INITIALE : {question}
 """
                     else:
                         st.error(f"Échec final. Erreur: {error_msg}")
+
+# ============================================================
+# 13) TAB 5 — CHAT NLSQL (VOCAL)
+# ============================================================
+
+with tabs[4]:
+    st.header("Copilote vocal (voiture)")
+    
+    voice_manager = Sentence(language='fr-FR')
+    
+    # --- 1. ZONE D'UPLOAD CENTRÉE ---
+    empty_l, center_col, empty_r = st.columns([1, 2, 1])
+    
+    with center_col:
+        st.write("### Posez votre question oralement")
+        uploaded_audio = st.file_uploader(
+            "Déposez votre fichier .wav ou .flac pour lancer l'analyse", 
+            type=["wav", "flac"], 
+            key="audio_auto_upload"
+        )
+
+    # --- 2. TRAITEMENT AUTOMATIQUE ---
+    if uploaded_audio:
+        st.markdown("---")
+        
+        final_response = None
+        transcript = ""
+        audio_file_path = "auto_answer.mp3"
+        
+        # --- BLOC DE CHARGEMENT VISUEL ---
+        with st.status("Traitement vocal...", expanded=True) as status:
+            st.write("Transcription de l'audio...")
+            temp_path = "temp_vocal_auto.wav"
+            with open(temp_path, "wb") as f:
+                f.write(uploaded_audio.getbuffer())
+            
+            transcript = voice_manager.toText(temp_path)
+            
+            if "[Error]" in transcript:
+                status.update(label="Erreur de transcription", state="error")
+                st.error(f"Détails : {transcript}")
+            else:
+                st.write(f"Compris : {transcript}")
+                st.write("Analyse des données en cours...")
+                
+                max_retries = 3
+                current_query = f"{transcript}\n(Consigne stricte : Ne retourne QUE la réponse en français naturel. N'inclus AUCUN code SQL dans ta réponse)."
+
+                for attempt in range(max_retries):
+                    try:
+                        response_obj = query_engine.query(current_query)
+                        final_response = response_obj.response
+                        break
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            st.write(f"Ajustement de la requête (tentative {attempt+1})...")
+                            current_query = f"ERREUR SQL: {str(e)}\nSTRUCTURE: {get_real_schema()}\nQUESTION: {transcript}\n(Rappel : pas de SQL dans la réponse textuelle finale)."
+                        else:
+                            st.error("Impossible d'extraire les données après plusieurs tentatives.")
+
+                if final_response:
+                    st.write("🔊 Génération de la réponse vocale...")
+                    voice_manager.toSpeech(final_response, audio_file_path)
+                    status.update(label="Analyse terminée !", state="complete")
+
+        # --- AFFICHAGE ET LECTURE (HORS DU STATUS) ---
+        if final_response:
+            # On affiche la conversation
+            st.chat_message("user").write(transcript)
+            st.chat_message("assistant").write(final_response)
+            
+            time.sleep(0.5)
+            
+            # Lecture du fichier
+            if Path(audio_file_path).exists():
+                with open(audio_file_path, "rb") as audio_file:
+                    audio_bytes = audio_file.read()
+                
+                st.audio(audio_bytes, format="audio/mpeg", autoplay=False)
 
 st.caption("Hackathon IA 2026 - Prototype fonctionnel")

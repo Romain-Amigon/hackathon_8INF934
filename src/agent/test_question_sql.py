@@ -24,7 +24,7 @@ Settings.llm = Ollama(
 
 # 2. CONNEXION SQL
 # Le fichier .db est monté via le volume Docker dans /app/mobility.db
-db_path = "/app/data/raw/mobility.db"
+db_path = "../../data/raw/mobility.db"
 
 if not os.path.exists(db_path):
     print(f" Erreur : {db_path} introuvable. Vérifie le montage du volume dans docker-compose.")
