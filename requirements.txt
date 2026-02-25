@@ -29,3 +29,6 @@ pydantic-settings      # Souvent requis avec les dernières versions de LlamaInd
 asyncio                # (Généralement inclus, mais bon à confirmer)
 pydub                  # Si tu manipules des fichiers audio (très probable pour l'UI)
 pydeck                 # Requis par ton code UI (st.pydeck_chart)
+
+plotly 
+pillow

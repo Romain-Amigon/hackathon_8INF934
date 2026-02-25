@@ -3,8 +3,11 @@ import os
 from llama_index.core.agent import ReActAgent
 from .state import AgentState
 import asyncio
+import logging
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 class Nodes:
     def __init__(self, agent, engines):
@@ -12,11 +15,12 @@ class Nodes:
         self.engines = engines # Un dictionnaire contenant tes moteurs
         self.llm_semaphore = asyncio.Semaphore(1)
 
-
     
     async def call_model(self, state: AgentState):
         historique = state["messages"]
         question_initiale = historique[0].content if hasattr(historique[0], 'content') else str(historique[0])
+        
+        logger.info(f"🔵 ASSISTANT: Traitement de la question: {question_initiale[:100]}...")
         
         # ON RÉCUPÈRE DYNAMIQUEMENT TES DESCRIPTIONS
         desc_311 = self.agent.tools[0].metadata.description
@@ -26,6 +30,7 @@ class Nodes:
         dernier_feedback = ""
         if len(historique) > 1:
             dernier_feedback = f"\nATTENTION : Ton essai précédent a échoué. Erreur : {historique[-1].content}. Ne refais pas la même erreur."
+            logger.warning(f"⚠️  RETRY MODE: {dernier_feedback[:80]}...")
     
         prompt = f"""Tu es un analyste de données expert pour la ville de Montréal.
         Réponds UNIQUEMENT avec des lignes de code Python, ne fais pas de commentaires et n'utilise pas ```
@@ -56,68 +61,57 @@ class Nodes:
     
         async with self.llm_semaphore:
             response = await self.agent.llm.acomplete(prompt)
+            logger.info(f"✅ CODE GÉNÉRÉ: {response.text.strip()[:150]}...")
             print(response)
             
         return {
             "messages": [response.text.strip()], 
             "next_step": "execute" 
         }
-        """
-        user_input = state["messages"][-1]
-        if hasattr(user_input, 'content'):
-            user_input = user_input.content
-                
-        # Routage direct (Sans appel LLM coûteux)
-        if any(keyword in user_input.lower() for keyword in ["nid-de-poule", "311"]):
-            # Note: query() est souvent synchrone, pas besoin de semaphore ici
-            response = self.engines["311"].query(user_input)
-            return {"messages": [str(response)], "next_step": "end"}
-    
-        # Appel Agent avec protection stricte
-        async with self.llm_semaphore:
-            print("--- Entrée dans le Sémaphore (Verrouillé) ---")
-            try:
-                response = await self.agent.run(user_input)
-                
-                # PAUSE OBLIGATOIRE avant de libérer le verrou
-                # Cela force Groq à respirer pendant 3 secondes avant la prochaine requête
-                await asyncio.sleep(3) 
-                
-                return {
-                    "messages": [response.response], 
-                    "next_step": "check_syntax"
-                }
-            finally:
-                print("--- Sortie du Sémaphore (Libéré) ---")
-        """
+
     def check_pandas_syntax(self, state: AgentState):
         """Vérifie le format du code avant exécution."""
-        last_msg = str(state["messages"][-1].content)
+        last_msg = str(state["messages"][-1].content if hasattr(state["messages"][-1], 'content') else state["messages"][-1])
+        
+        logger.info("🔍 VALIDATEUR: Vérification de la syntaxe...")
         
         # Détection des erreurs de format
         if "df =" in last_msg :
+            error_msg = "ERREUR : Format invalide. Ne pas utiliser 'df ='"
+            logger.warning(f"❌ SYNTAXE: {error_msg}")
             return {
-                "messages": ["ERREUR : Format invalide. Ne pas utiliser 'df ='"],
+                "messages": [error_msg],
                 "next_step": "retry"
             }
         if  "```" in last_msg:
+            error_msg = "ERREUR : Format invalide. Ne pas utiliser ``` ni de markdown."
+            logger.warning(f"❌ SYNTAXE: {error_msg}")
             return {
-                "messages": ["ERREUR : Format invalide. Ne pas utiliser ``` ni de markdown."],
+                "messages": [error_msg],
                 "next_step": "retry"
             }
     
         if  'resultat' not in last_msg:
+            error_msg = "ERREUR : Il est nécessaire d'enregistrer le résultat dans une variable nommée resultat"
+            logger.warning(f"❌ SYNTAXE: {error_msg}")
             return {
-                "messages": ["ERREUR : Il est nécessaire d'enregistrer le résultat dans une variable nommée resultat"],
+                "messages": [error_msg],
                 "next_step": "retry"
             }
-        return {"next_step": "execute"}
+        
+        logger.info("✅ VALIDATEUR: Syntaxe valide, passage à l'exécution")
+        return {
+            "messages": [],  # Pas de new message, on garde l'historique
+            "next_step": "execute"
+        }
     
 
 
     def execute_tool(self, state: AgentState):
-        code_brut = str(state["messages"][-1].content)
+        code_brut = str(state["messages"][-1].content if hasattr(state["messages"][-1], 'content') else state["messages"][-1])
         clean_code = code_brut.replace("```python", "").replace("```", "").strip()
+        
+        logger.info(f"⚙️  EXECUTEUR: Exécution du code...")
         
         contexte_data = {
             "df_311": self.engines["311"]._df,
@@ -135,13 +129,95 @@ class Nodes:
             # Si le modèle a créé une variable 'diff_accidents' ou 'resultat'
             # On essaie de récupérer une valeur logique
             final_val = contexte_data.get("resultat") or contexte_data.get("diff_accidents") or "Calcul effectué sans valeur de retour spécifique"
+            
+            logger.info(f"✅ EXECUTEUR: Résultat obtenu = {final_val}")
     
             return {
-                "messages": [f"Le résultat de l'analyse est : {final_val}"],
-                "next_step": "end"
+                "messages": [f"RÉSULTAT: {final_val}"],
+                "next_step": "critique"
             }
         except Exception as e:
+            logger.error(f"❌ EXECUTEUR: Erreur d'exécution: {str(e)}")
             return {
                 "messages": [f"ERREUR D'EXÉCUTION : {str(e)}"],
                 "next_step": "retry"
+            }
+    
+    def critique_response(self, state: AgentState):
+        """Nœud critique qui évalue la qualité de la réponse (Mode Contradicteur).
+        Version synchrone avec support de l'asynchrone."""
+        try:
+            historique = state["messages"]
+            
+            # Extraction safe de la question initiale
+            first_msg = historique[0]
+            if hasattr(first_msg, 'content'):
+                question_initiale = first_msg.content
+            else:
+                question_initiale = str(first_msg)
+            
+            # Extraction safe du dernier message (la réponse)
+            last_msg = historique[-1]
+            if hasattr(last_msg, 'content'):
+                derniere_reponse = last_msg.content
+            else:
+                derniere_reponse = str(last_msg)
+            
+            logger.info(f"🎯 DISPUTEUR: Évaluation critique de: {derniere_reponse[:80]}...")
+            
+            # Prompt critique
+            prompt_critique = f"""Tu es un critique analytique strict des analyses de données. Évalue cette réponse sur :
+1. Exactitude factuelle (basée sur les données)
+2. Complétude (répond-elle à toute la question ?)
+3. Clarté et objectivité
+4. Format numérique approprié
+
+QUESTION: {question_initiale}
+RÉPONSE: {derniere_reponse}
+
+VERDICT (une seule ligne):
+- ✅ si la réponse est VALIDE, COMPLÈTE et FACTUELLE
+- ❌ si la réponse est INCOMPLÈTE, INCORRECTE ou VAGUE"""
+            
+            logger.info(f"📝 DISPUTEUR: Envoi de la critique au LLM...")
+            
+            # Obtenir ou créer une boucle d'événements
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Créer une coroutine pour la critique
+            async def get_critique():
+                async with self.llm_semaphore:
+                    critique = await self.agent.llm.acomplete(prompt_critique)
+                    return critique.text.strip() if hasattr(critique, 'text') else str(critique).strip()
+            
+            # Exécuter la coroutine
+            critique_text = loop.run_until_complete(get_critique())
+            
+            logger.info(f"📋 DISPUTEUR: Critique reçue = {critique_text[:150]}")
+            
+            # Décision basée sur la critique
+            if critique_text.startswith("✅"):
+                logger.info("✅✅✅ DISPUTEUR: RÉPONSE VALIDÉE, FIN")
+                return {
+                    "messages": [f"\n═════════════════════════════\n✅ RÉPONSE ACCEPTÉE\n═════════════════════════════\n{derniere_reponse}\n\n🗣️ Critique: {critique_text}"],
+                    "next_step": "end"
+                }
+            else:
+                logger.warning(f"⚠️  DISPUTEUR: RÉPONSE REJETÉE - {critique_text[:80]}")
+                return {
+                    "messages": [f"🔄 RÉVISION REQUISE:\n{critique_text}\n\n(Le système va regénérer une meilleure réponse...)"],
+                    "next_step": "retry"
+                }
+        except Exception as e:
+            logger.error(f"💥 DISPUTEUR CRASH: {str(e)}", exc_info=True)
+            return {
+                "messages": [f"❌ Erreur critique: {str(e)}"],
+                "next_step": "end"
             }

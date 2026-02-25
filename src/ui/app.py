@@ -3,8 +3,11 @@ import pandas as pd
 import torch
 from pathlib import Path
 import pydeck as pdk
-import matplotlib.pyplot as plt
+import plotly.express as px
+import plotly.graph_objects as go
 from wordcloud import WordCloud
+from PIL import Image
+import io
 
 from llama_index.core import SQLDatabase, Settings
 from llama_index.core.query_engine import NLSQLTableQueryEngine
@@ -333,22 +336,42 @@ with tabs[1]:
 
     agg = load_311_agg(str(d1), str(d2), motif_col=motif_col, arrondissement=arrondissement, limit=300)
 
+    # === GRAPHIQUE BAR PLOTLY ===
     top10 = agg.head(10).copy().sort_values("cnt", ascending=True)
-    fig = plt.figure()
-    plt.barh(top10["motif"], top10["cnt"])
-    plt.xlabel("Nombre")
-    plt.ylabel(motif_col)
-    plt.title(f"Top 10 motifs 311 ({motif_col})")
-    st.pyplot(fig, clear_figure=True)
+    fig_bar = go.Figure(data=[
+        go.Bar(
+            x=top10["cnt"],
+            y=top10["motif"],
+            orientation='h',
+            marker=dict(
+                color=top10["cnt"],
+                colorscale='Viridis',
+                showscale=True,
+                colorbar=dict(title="Nombre")
+            ),
+            text=top10["cnt"],
+            textposition='auto',
+        )
+    ])
+    fig_bar.update_layout(
+        title=f"🔝 Top 10 motifs 311 ({motif_col})",
+        xaxis_title="Nombre de signalements",
+        yaxis_title=motif_col,
+        height=500,
+        hovermode='closest',
+        template='plotly_dark'
+    )
+    st.plotly_chart(fig_bar, use_container_width=True)
 
+    # === WORD CLOUD EN IMAGE ===
     freq = {row["motif"]: int(row["cnt"]) for _, row in agg.iterrows()}
-    wc = WordCloud(width=1200, height=500, background_color="white").generate_from_frequencies(freq)
-
-    fig2 = plt.figure()
-    plt.imshow(wc, interpolation="bilinear")
-    plt.axis("off")
-    plt.title(f"Nuage de mots — motifs 311 ({motif_col})")
-    st.pyplot(fig2, clear_figure=True)
+    wc = WordCloud(width=1200, height=500, background_color="white", colormap="viridis").generate_from_frequencies(freq)
+    
+    # Convertir en image PIL et afficher
+    img_buffer = io.BytesIO()
+    wc.to_image().save(img_buffer, format="PNG")
+    img_buffer.seek(0)
+    st.image(img_buffer, caption=f"☁️ Nuage de mots — motifs 311 ({motif_col})", use_container_width=True)
 
 
 # ============================================================

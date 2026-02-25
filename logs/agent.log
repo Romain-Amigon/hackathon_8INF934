@@ -1,0 +1,119 @@
+2026-02-25 19:06:06,768 - src.agent.main - INFO - ================================================================================
+2026-02-25 19:06:06,768 - src.agent.main - INFO - 🚀 DÉMARRAGE DU SYSTÈME D'ANALYSE MONTRÉAL
+2026-02-25 19:06:06,768 - src.agent.main - INFO - ================================================================================
+2026-02-25 19:06:06,776 - src.agent.main - INFO - 📂 Chemin du projet: /app
+2026-02-25 19:06:06,776 - src.agent.main - INFO - 📊 Chemin des données: /app/data/raw
+2026-02-25 19:06:06,776 - src.agent.main - INFO - 📥 Chargement des données...
+2026-02-25 19:06:19,561 - src.agent.main - INFO - ✅ 311: 2736878 requêtes chargées
+2026-02-25 19:06:19,561 - src.agent.main - INFO - ✅ Collisions: 218261 collision chargées
+2026-02-25 19:06:19,561 - src.agent.main - INFO - ✅ Météo: 5167 enregistrements chargés
+2026-02-25 19:06:19,562 - src.agent.main - INFO - 🤖 LLM Groq initialisé (llama-3.1-8b-instant)
+2026-02-25 19:06:19,562 - src.agent.main - INFO - ⚙️  Moteurs Pandas Query Engine initialisés
+2026-02-25 19:06:19,601 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-02-25 19:06:24,898 - sentence_transformers.SentenceTransformer - INFO - 2 prompts are loaded, with the keys: ['query', 'text']
+2026-02-25 19:07:05,632 - src.agent.main - INFO - 🔵 RUN: Question reçue: quel température moyenne en 2020 ? ...
+2026-02-25 19:07:33,493 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:07:33,494 - src.agent.main - INFO - 🎯 Engine sélectionné: pour répondre à cette question sur la température moyenne en 2020, nous devons utiliser les données météorologiques.
+
+**bases de données utilisées :**  
+- `donnees_meteo` (pour les données météorologiques)
+
+**requête en python pandas :**
+```python
+import pandas as pd
+
+# charger les données météorologiques pour l'année 2020
+meteo_2020 = donnees_meteo[donnees_meteo['année'] == 2020]
+
+# calculer la température moyenne en 2020
+temperature_moyenne = meteo_2020['température'].mean()
+
+print(f"la température moyenne en 2020 était de {temperature_moyenne:.2f}°c")
+```
+
+**réponse chiffrée et factuelle :**
+- la température moyenne en montréal en 2020 était de **8.5°c**.
+2026-02-25 19:07:33,494 - src.agent.main - INFO - 📊 Exécution de la requête sur les données...
+2026-02-25 19:07:36,589 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-25 19:07:36,600 - src.agent.main - INFO - ✅ Résultat brut: There was an error running the output as Python code. Error message: Can only use .dt accessor with ...
+2026-02-25 19:07:36,600 - src.agent.main - INFO - 🧠 Formulation de la réponse finale...
+2026-02-25 19:08:25,293 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:08:25,294 - src.agent.main - INFO - ✅ Réponse finale générée: ### Analyse de la Question
+
+**Identifiez quelle(s) base(s) de données utiliser :**
+La base de donnée...
+2026-02-25 19:13:20,084 - src.agent.main - INFO - ================================================================================
+2026-02-25 19:13:20,085 - src.agent.main - INFO - 🚀 DÉMARRAGE DU SYSTÈME D'ANALYSE MONTRÉAL
+2026-02-25 19:13:20,085 - src.agent.main - INFO - ================================================================================
+2026-02-25 19:13:20,091 - src.agent.main - INFO - 📂 Chemin du projet: /app
+2026-02-25 19:13:20,091 - src.agent.main - INFO - 📊 Chemin des données: /app/data/raw
+2026-02-25 19:13:20,091 - src.agent.main - INFO - 📥 Chargement des données...
+2026-02-25 19:13:33,315 - src.agent.main - INFO - ✅ 311: 2736878 requêtes chargées
+2026-02-25 19:13:33,315 - src.agent.main - INFO - ✅ Collisions: 218261 collision chargées
+2026-02-25 19:13:33,315 - src.agent.main - INFO - ✅ Météo: 5167 enregistrements chargés
+2026-02-25 19:13:33,315 - src.agent.main - INFO - 🤖 LLM Groq initialisé (llama-3.1-8b-instant)
+2026-02-25 19:13:33,316 - src.agent.main - INFO - ⚙️  Moteurs Pandas Query Engine initialisés
+2026-02-25 19:13:33,474 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-02-25 19:13:39,362 - sentence_transformers.SentenceTransformer - INFO - 2 prompts are loaded, with the keys: ['query', 'text']
+2026-02-25 19:15:29,957 - src.agent.main - INFO - 🔵 RUN: Question reçue: combien de jours simultané avec des températures positive...
+2026-02-25 19:15:31,294 - src.agent.main - INFO - 🔵 RUN: Question reçue: combien de jours simultané avec des températures positive...
+2026-02-25 19:15:33,764 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:15:33,765 - src.agent.main - INFO - 🎯 Engine sélectionné: donnees_meteo
+2026-02-25 19:15:33,765 - src.agent.main - INFO - 📊 Exécution de la requête sur les données...
+2026-02-25 19:15:34,444 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:15:34,445 - src.agent.main - INFO - 🎯 Engine sélectionné: donnes_meteo
+2026-02-25 19:15:34,445 - src.agent.main - WARNING - ⚠️  Engine par défaut utilisé (météo)
+2026-02-25 19:15:34,445 - src.agent.main - INFO - 📊 Exécution de la requête sur les données...
+2026-02-25 19:15:36,912 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-25 19:15:36,922 - src.agent.main - INFO - ✅ Résultat brut: 4155...
+2026-02-25 19:15:36,922 - src.agent.main - INFO - 🧠 Formulation de la réponse finale...
+2026-02-25 19:15:37,287 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-25 19:15:37,290 - src.agent.main - INFO - ✅ Résultat brut: 4155...
+2026-02-25 19:15:37,290 - src.agent.main - INFO - 🧠 Formulation de la réponse finale...
+2026-02-25 19:16:33,035 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:16:33,036 - src.agent.main - INFO - ✅ Réponse finale générée: ### Analyse du problème :
+La question demande le nombre de jours où la température était supérieure ...
+2026-02-25 19:17:26,614 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:17:26,615 - src.agent.main - INFO - ✅ Réponse finale générée: ### Étape 1 : Identifiez quelle(s) base(s) de données utiliser
+Pour cette question, nous avons besoi...
+2026-02-25 19:31:50,733 - src.agent.main - INFO - ================================================================================
+2026-02-25 19:31:50,733 - src.agent.main - INFO - 🚀 DÉMARRAGE DU SYSTÈME D'ANALYSE MONTRÉAL
+2026-02-25 19:31:50,733 - src.agent.main - INFO - ================================================================================
+2026-02-25 19:31:50,738 - src.agent.main - INFO - 📂 Chemin du projet: /app
+2026-02-25 19:31:50,738 - src.agent.main - INFO - 📊 Chemin des données: /app/data/raw
+2026-02-25 19:31:50,738 - src.agent.main - INFO - 📥 Chargement des données...
+2026-02-25 19:32:03,638 - src.agent.main - INFO - ✅ 311: 2736878 requêtes chargées
+2026-02-25 19:32:03,638 - src.agent.main - INFO - ✅ Collisions: 218261 collision chargées
+2026-02-25 19:32:03,638 - src.agent.main - INFO - ✅ Météo: 5167 enregistrements chargés
+2026-02-25 19:32:03,639 - src.agent.main - INFO - 🤖 LLM Groq initialisé (llama-3.1-8b-instant)
+2026-02-25 19:32:03,639 - src.agent.main - INFO - ⚙️  Moteurs Pandas Query Engine initialisés
+2026-02-25 19:32:03,679 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: BAAI/bge-small-en-v1.5
+2026-02-25 19:32:33,463 - sentence_transformers.SentenceTransformer - INFO - 2 prompts are loaded, with the keys: ['query', 'text']
+2026-02-25 19:32:37,090 - matplotlib.font_manager - INFO - generated new fontManager
+2026-02-25 19:33:48,611 - src.agent.main - INFO - 🔵 RUN: Question reçue: quel est le nombre total d'incident...
+2026-02-25 19:34:13,560 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:34:13,560 - src.agent.main - INFO - 🎯 Engine sélectionné: la base de données à utiliser pour cette question est `donnees_311`.
+
+voici la requête en python pandas :
+
+```python
+import pandas as pd
+
+# charger les données
+df = pd.read_csv('chemin_vers_donnees_311.csv')
+
+# calculer le nombre total d'incident
+nombre_total_incidents = df.shape[0]
+
+print(f"le nombre total d'incidents est : {nombre_total_incidents}")
+```
+
+pour exécuter cette requête, vous devrez avoir le fichier csv `chemin_vers_donnees_311.csv` chargé dans votre environnement de travail python. la méthode `shape[0]` permet de récupérer le nombre total de lignes du dataframe, qui correspond au nombre d'incidents.
+
+une fois l'exécution effectuée, la réponse chiffrée et factuelle sera affichée dans la console.
+2026-02-25 19:34:13,561 - src.agent.main - INFO - 📊 Exécution de la requête sur les données...
+2026-02-25 19:34:16,841 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-25 19:34:16,988 - src.agent.main - INFO - ✅ Résultat brut: 1267644...
+2026-02-25 19:34:16,988 - src.agent.main - INFO - 🧠 Formulation de la réponse finale...
+2026-02-25 19:35:13,281 - httpx - INFO - HTTP Request: POST http://127.0.0.1:11434/api/chat "HTTP/1.1 200 OK"
+2026-02-25 19:35:13,282 - src.agent.main - INFO - ✅ Réponse finale générée: Pour répondre à la question "Quel est le nombre total d'incidents ?", nous devons examiner toutes le...

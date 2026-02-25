@@ -4,6 +4,7 @@ import nest_asyncio
 import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
+import logging
 
 from llama_index.llms.groq import Groq
 from llama_index.experimental.query_engine import PandasQueryEngine
@@ -11,6 +12,30 @@ from llama_index.core.tools import QueryEngineTool, ToolMetadata
 
 load_dotenv()
 nest_asyncio.apply()
+
+# --- CONFIGURATION DU LOGGING ---
+def setup_logging():
+    """Configure le système de logging pour tracer l'exécution du agent"""
+    log_dir = Path(__file__).resolve().parents[2] / "logs"
+    log_dir.mkdir(exist_ok=True)
+    log_file = log_dir / "agent.log"
+    
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    
+    logger = logging.getLogger(__name__)
+    logger.info("=" * 80)
+    logger.info("🚀 DÉMARRAGE DU SYSTÈME D'ANALYSE MONTRÉAL")
+    logger.info("=" * 80)
+    return logger
+
+logger = setup_logging()
 
 from pydantic import Field
 import time
@@ -41,12 +66,21 @@ def setup_agent():
     PROJECT_ROOT = Path(__file__).resolve().parents[2]
     DATA_DIR = PROJECT_ROOT / "data" / "raw"
     
+    logger.info(f"📂 Chemin du projet: {PROJECT_ROOT}")
+    logger.info(f"📊 Chemin des données: {DATA_DIR}")
+    
     # Chargement des données
+    logger.info("📥 Chargement des données...")
     df_311 = pd.read_csv(DATA_DIR / "requetes311.csv", low_memory=False)
     df_coll = pd.read_csv(DATA_DIR / "collisions.csv")
     df_meteo = pd.read_csv(DATA_DIR / "weather_montreal.csv")
+    
+    logger.info(f"✅ 311: {len(df_311)} requêtes chargées")
+    logger.info(f"✅ Collisions: {len(df_coll)} collision chargées")
+    logger.info(f"✅ Météo: {len(df_meteo)} enregistrements chargés")
 
     llm = RateLimitedGroq(model="llama-3.1-8b-instant", temperature=0.0, delay_seconds=2.0)
+    logger.info("🤖 LLM Groq initialisé (llama-3.1-8b-instant)")
 
     instruction_stricte = """Output a SINGLE line of Python code using 'df'. 
     No 'df = ...', no markdown. Just the expression."""
@@ -55,6 +89,8 @@ def setup_agent():
     e_311 = PandasQueryEngine(df=df_311, llm=llm, instruction_str=instruction_stricte)
     e_coll = PandasQueryEngine(df=df_coll, llm=llm, instruction_str=instruction_stricte)
     e_meteo = PandasQueryEngine(df=df_meteo, llm=llm, instruction_str=instruction_stricte)
+    
+    logger.info("⚙️  Moteurs Pandas Query Engine initialisés")
 
 
     engines = {"311": e_311, "coll": e_coll, "meteo": e_meteo}
@@ -131,6 +167,10 @@ Sois précis, chiffré et objectif dans tes réponses."""
 # --- LOGIQUE D'ÉVALUATION ---
 async def run_benchmarks(llm, system_prompt):
     """Fonction de test pour valider les réponses."""
+    logger.info("=" * 80)
+    logger.info("📊 DÉMARRAGE DES BENCHMARKS")
+    logger.info("=" * 80)
+    
     tests_evaluation = {
         "Combien de morts au total dans les collisions ?": 269,
         "Nombre de requêtes pour Nid-de-poule ?": 112791,
@@ -139,20 +179,27 @@ async def run_benchmarks(llm, system_prompt):
 
     resultats_logs = []
     
-    for question, attendu in tests_evaluation.items():
+    for i, (question, attendu) in enumerate(tests_evaluation.items(), 1):
+        logger.info(f"\n📌 TEST {i}/{len(tests_evaluation)}: {question}")
         print(f"\n Test : {question}")
         try:
             reponse_finale = await run(llm, question, system_prompt)
+            succes = str(attendu) in reponse_finale
+            logger.info(f"✅ Attention: {attendu} | Obtenu: {reponse_finale[:100]}")
             
             resultats_logs.append({
                 "Question": question,
                 "Attendu": attendu,
                 "Obtenu": reponse_finale,
-                "Succès": str(attendu) in reponse_finale
+                "Succès": succes
             })
         except Exception as e:
+            logger.error(f"❌ Erreur sur ce test : {e}")
             print(f"❌ Erreur sur ce test : {e}")
 
+    logger.info("\n" + "=" * 80)
+    logger.info("✅ BENCHMARKS TERMINÉS")
+    logger.info("=" * 80)
     return pd.DataFrame(resultats_logs)
 
 async def run(llm, prompt: str, engines: dict, system_prompt: str = "") -> str:
@@ -168,6 +215,8 @@ async def run(llm, prompt: str, engines: dict, system_prompt: str = "") -> str:
     Returns:
         Réponse textuelle de Groq avec résultats réels des bases de données
     """
+    logger.info(f"🔵 RUN: Question reçue: {prompt[:80]}...")
+    
     try:
         # Étape 1 : Groq analyse la question et choisit le bon engine
         analysis_prompt = f"""{system_prompt}
@@ -178,6 +227,7 @@ Réponds EXACTEMENT le nom du moteur à utiliser parmi : donnees_311, donnees_co
         
         engine_choice_response = llm.complete(analysis_prompt)
         engine_choice = str(engine_choice_response.text).strip().lower() if hasattr(engine_choice_response, 'text') else ""
+        logger.info(f"🎯 Engine sélectionné: {engine_choice}")
         
         # Étape 2 : Mapper le choix au bon engine
         engine_map = {
@@ -196,15 +246,20 @@ Réponds EXACTEMENT le nom du moteur à utiliser parmi : donnees_311, donnees_co
         # Si pas d'engine trouvé, utiliser celui de la météo par défaut
         if selected_engine is None:
             selected_engine = engines["meteo"]
+            logger.warning("⚠️  Engine par défaut utilisé (météo)")
         
         # Étape 3 : Exécuter la requête sur les données réelles
+        logger.info("📊 Exécution de la requête sur les données...")
         try:
             data_response = selected_engine.query(prompt)
             data_result = str(data_response).strip()
+            logger.info(f"✅ Résultat brut: {data_result[:100]}...")
         except Exception as e:
             data_result = f"Erreur lors de l'exécution sur les données : {str(e)}"
+            logger.error(f"❌ Erreur query engine: {str(e)}")
         
         # Étape 4 : Groq formule la réponse finale avec les données réelles
+        logger.info("🧠 Formulation de la réponse finale...")
         final_prompt = f"""{system_prompt}
 
 Données brutes obtenues : {data_result}
@@ -214,16 +269,32 @@ Question originale : {prompt}
 Formule une réponse factuelle basée sur les données obtenues. Sois précis et objectif."""
         
         final_response = llm.complete(final_prompt)
-        return str(final_response.text).strip() if hasattr(final_response, 'text') else str(final_response).strip()
+        reponse = str(final_response.text).strip() if hasattr(final_response, 'text') else str(final_response).strip()
+        logger.info(f"✅ Réponse finale générée: {reponse[:100]}...")
+        
+        return reponse
         
     except Exception as e:
+        logger.error(f"❌ ERREUR CRITIQUE: {str(e)}")
         return f"Erreur lors de l'appel à Groq : {str(e)}"
 
 
 if __name__ == "__main__":
     # Test simple
+    logger.info("\n" + "=" * 80)
+    logger.info("🎯 MODE TEST SIMPLE")
+    logger.info("=" * 80)
+    
     llm, engines, tools, system_prompt = setup_agent()
     question = "Nombre de jours en dessous de 0 degrés à Montréal"
+    logger.info(f"❓ Question: {question}")
+    
     reponse = asyncio.run(run(llm, question, engines, system_prompt))
-    print(f"Question: {question}")
+    logger.info(f"📋 Réponse: {reponse}")
+    
+    print(f"\nQuestion: {question}")
     print(f"Réponse: {reponse}")
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("✅ TEST TERMINÉ")
+    logger.info("=" * 80)

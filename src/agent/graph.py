@@ -2,6 +2,9 @@
 from langgraph.graph import StateGraph, END
 from .state import AgentState
 from .nodes import Nodes
+import logging
+
+logger = logging.getLogger(__name__)
 
 def create_graph(agent_instance, engines_dict): #: ReActAgent
 
@@ -15,6 +18,7 @@ def create_graph(agent_instance, engines_dict): #: ReActAgent
     workflow.add_node("assistant", nodes.call_model)
     workflow.add_node("validateur", nodes.check_pandas_syntax)
     workflow.add_node("executeur", nodes.execute_tool)
+    workflow.add_node("disputeur", nodes.critique_response)
     
     # 4. Configuration des chemins (Edges)
     workflow.set_entry_point("assistant")
@@ -22,24 +26,28 @@ def create_graph(agent_instance, engines_dict): #: ReActAgent
     # Lien direct : après l'assistant, on vérifie TOUJOURS la syntaxe
     workflow.add_edge("assistant", "validateur")
     
-    # Lien conditionnel : que faire après la validation ?
+    # Lien après validation
     workflow.add_conditional_edges(
         "validateur",
-        lambda state: state["next_step"], # On regarde la valeur dans le state
-        {
-            "execute": "executeur", # Tout est bon, on lance le calcul
-            "retry": "assistant"    # Erreur détectée, on redemande au LLM de corriger
-        }
-    )
-    
-    # Lien après exécution
-    workflow.add_conditional_edges(
-        "executeur",
         lambda state: state["next_step"],
         {
-            "end": END,            # Terminé, on rend la réponse
-            "retry": "assistant"   # Le calcul a planté, on repart au début avec l'erreur
+            "execute": "executeur",
+            "retry": "assistant"
         }
     )
     
+    # Lien après exécution : toujours vers le critique
+    workflow.add_edge("executeur", "disputeur")
+    
+    # Lien après critique
+    workflow.add_conditional_edges(
+        "disputeur",
+        lambda state: state["next_step"],
+        {
+            "end": END,            # Critique acceptée, fin
+            "retry": "assistant"   # Critique négative, on recommence
+        }
+    )
+    
+    logger.info("Graph créé avec succès (assistant -> validateur -> executeur -> disputeur -> END)")
     return workflow.compile()
