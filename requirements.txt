@@ -21,3 +21,4 @@ matplotlib
 # For audio processing
 SpeechRecognition==3.10.1
 gTTS==2.5.1
+llama-index-llms-groq
