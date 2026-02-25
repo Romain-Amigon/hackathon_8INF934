@@ -1,7 +1,10 @@
 .env
+.venv/
 *.csv
 
 data/raw/stm/
+todo
+mobility.db
 
 .DS_Store
 __pycache__

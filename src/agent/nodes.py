@@ -8,8 +8,8 @@ from llama_index.core.agent.workflow import AgentWorkflow, ReActAgent
 
 nest_asyncio.apply()
 
-df_311 = pd.read_csv("../../data/raw/requetes_311.csv", low_memory=False)
-df_coll = pd.read_csv("../../data/raw/collisions_clean.csv")
+df_311 = pd.read_csv("../../data/raw/requetes_311_all_time.csv", low_memory=False)
+df_coll = pd.read_csv("../../data/raw/collisions.csv")
 df_meteo = pd.read_csv("../../data/raw/weather_montreal.csv")
 
 llm = Ollama(model="llama3", request_timeout=3000.0)

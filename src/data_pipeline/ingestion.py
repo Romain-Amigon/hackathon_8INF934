@@ -70,61 +70,9 @@ def fetch_weather_data():
     
     return df_weather
 
+def main():
+    fetch_stm_data()
+    fetch_collisions_data()
+    fetch_weather_data()
 
-def fetch_311():
-    """NE PAS UTILISER PAS A JOUR"""
-    """
-    url_pkg = "https://donnees.montreal.ca/api/3/action/package_show?id=requete-311"
-    res_pkg = requests.get(url_pkg)
-    resources = res_pkg.json()['result']['resources']
-    
-    csv_url = None
-    for r in resources:
-        if "2022" in r.get("name", ""):
-            csv_url = r["url"]
-            break
-            
-    if not csv_url:
-        csv_url = resources[0]["url"]
-
-    categories = [
-        'Feux de circulation - Entretien', 'Signalisation - Circulation - Études',
-        'Collecte de déchets', 'Bac roulant', "Fermeture d'une conduite d'eau - Urgence",
-        'Collecte des encombrants', 'Info-Remorquage', 'Neige - Remorquage',
-        'Opération déneigement', 'Nid-de-poule', "Fermeture d'entrée d'eau",
-        'Permis - Divers', 'Info-travaux - Service central', 'Collecte des matières recyclables', 
-        'Branche tombée', 'Danger potentiel - Arbre', "Info - Collecte d'objets encombrants",
-        'Collecte des matières organiques', 'Permis - Neige - Domaine public',
-        'Info-travaux - Arrondissement', 'Intervention stationnement', 'Stationnement municipal',
-        'Carte Info-Neige', 'Trottoir glissant', 'Chaussée glissante',
-        'Piste cyclable déneigement', 'Pavage - Réparation', 'Trottoir ou bordure - Réparation',
-        "Fuite d'eau", 'Égout - Crue des eaux', 'Signalisation endommagée Vm',
-        '*Signalisation manquante ou endommagée', '*Circulation - Travaux majeurs',
-        '*Entrave - Piste cyclable', 'Débris sur la voie publique', 'Arbre tombé'
-    ]
-    
-    df_iterator = pd.read_csv(csv_url, chunksize=50000, low_memory=False)
-    df_clean_list = []
-    
-    for chunk in df_iterator:
-        if 'ACTI_NOM' in chunk.columns:
-            chunk_filtered = chunk[chunk['ACTI_NOM'].isin(categories)].copy()
-            if 'LOC_LAT' in chunk_filtered.columns and 'LOC_LONG' in chunk_filtered.columns:
-                chunk_filtered = chunk_filtered.dropna(subset=['LOC_LAT', 'LOC_LONG'])
-            df_clean_list.append(chunk_filtered)
-            
-    df_final = pd.concat(df_clean_list, ignore_index=True)
-    
-    output_dir = os.path.join(os.path.dirname(__file__), '../../data/raw')
-    os.makedirs(output_dir, exist_ok=True)
-    file_path = os.path.join(output_dir, 'requetes_311.csv')
-    df_final.to_csv(file_path, index=False)
-    
-    return df_final"""
-
-if __name__ == "__main__":
-    #print(fetch_stm_data().head())
-    
-    #print(fetch_collisions_data().head())
-    #print(fetch_weather_data().head())
-    #print(fetch_311().head())
+main()
