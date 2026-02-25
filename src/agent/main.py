@@ -11,7 +11,9 @@ from llama_index.llms.groq import Groq
 from llama_index.core.agent import ReActAgent
 from llama_index.experimental.query_engine import PandasQueryEngine
 from llama_index.core.tools import QueryEngineTool, ToolMetadata
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, load_index_from_storage, Settings
 
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 load_dotenv()
 nest_asyncio.apply()
 
@@ -47,7 +49,7 @@ def setup_agent():
     df_coll = pd.read_csv("../../data/raw/collisions_clean.csv")
     df_meteo = pd.read_csv("../../data/raw/weather_montreal.csv")
 
-    llm = RateLimitedGroq(model="llama-3.1-8b-instant", temperature=0.0, delay_seconds=2.0)
+    llm = Groq(model="llama-3.1-8b-instant", temperature=0.0)
 
     instruction_stricte = """Output a SINGLE line of Python code using 'df'. 
     No 'df = ...', no markdown. Just the expression."""
@@ -155,23 +157,40 @@ async def run_benchmarks(app):
 async def run(app, prompt):
     inputs = {"messages": [prompt]}
     reponse_finale = "Une erreur est survenue."
+    reflexions_finales = []
 
     try:
         output = await app.ainvoke(inputs)
         
+        if "reflexions" in output:
+            reflexions_finales = output["reflexions"]
+        
         if "messages" in output and len(output["messages"]) > 0:
             dernier_msg = output["messages"][-1]
             
-            # Si c'est un objet (comme ce que tu as reçu), on prend .content
             if hasattr(dernier_msg, 'content'):
                 reponse_finale = str(dernier_msg.content).strip()
             else:
                 reponse_finale = str(dernier_msg).strip()
-        
+                
     except Exception as e:
         print(f"❌ Erreur lors de l'exécution : {e}")
 
-    return reponse_finale
+    return reponse_finale, reflexions_finales
+
+def setup_retriever(data_dir="../../data/rag", persist_dir="../../data/rag/vectors"):
+    Settings.embed_model = HuggingFaceEmbedding(
+        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    )
+    if not os.path.exists(persist_dir):
+        documents = SimpleDirectoryReader(data_dir).load_data()
+        index = VectorStoreIndex.from_documents(documents)
+        index.storage_context.persist(persist_dir=persist_dir)
+    else:
+        storage_context = StorageContext.from_defaults(persist_dir=persist_dir)
+        index = load_index_from_storage(storage_context)
+        
+    return index.as_retriever(similarity_top_k=7)
 
 # --- MAIN ---
 async def main_benchmark():
@@ -193,15 +212,64 @@ async def main_benchmark():
 async def main():
     # 1. Initialiser l'agent de base
     agent_instance,engines = setup_agent()
-    
+    retriever = setup_retriever()
     # 2. Compiler le graphe LangGraph
-    app = create_graph(agent_instance,engines)
+    app = create_graph(agent_instance,engines,retriever)
     
     #prompt =input("Bonjour, comment puis-je vous aider ?\n")
     prompt="Combien d'accidents y a-t-il eu les jours ou il y a eu plus de 10cm de neige"
-    reponse = await run(app, prompt)
+    reponse,reflexions = await run(app, prompt)
     
     print('----------')
+    
+    print("\n" + "="*40)
+    print("RÉFLEXIONS DU MODÈLE")
+    print("="*40)
+    for r in reflexions:
+        print(f"\x1B[3m {r}\x1B[0m ")
+        print("-" * 40)
+        
+    print("\n" + "="*40)
+    print("RÉPONSE FINALE")
+    print("="*40)
+    print(reponse)
+    time.sleep(3)
+    prompt = "Quelle est la définition d'un accident grave ?"
+    reponse , reflexions= await run(app, prompt)
+    
+    
+    print('----------')
+    
+    print("\n" + "="*40)
+    print("RÉFLEXIONS DU MODÈLE")
+    print("="*40)
+    for r in reflexions:
+        print(f"\x1B[3m {r}\x1B[0m ")
+        print("-" * 40)
+        
+    print("\n" + "="*40)
+    print("RÉPONSE FINALE")
+    print("="*40)
+    print(reponse)
+    
+    
+    
+    time.sleep(3)
+    
+    prompt = "Quelle est la définition d'un accident grave ?"
+    reponse , reflexions= await run(app, prompt)
+    print('----------')
+    
+    print("\n" + "="*40)
+    print("RÉFLEXIONS DU MODÈLE")
+    print("="*40)
+    for r in reflexions:
+        print(f"\x1B[3m {r}\x1B[0m ")
+        print("-" * 40)
+        
+    print("\n" + "="*40)
+    print("RÉPONSE FINALE")
+    print("="*40)
     print(reponse)
 
 if __name__ == "__main__":

@@ -7,13 +7,70 @@ import asyncio
 import pandas as pd
 
 class Nodes:
-    def __init__(self, agent, engines):
+    def __init__(self, agent, engines,retriever):
         self.agent = agent
         self.engines = engines # Un dictionnaire contenant tes moteurs
-        self.llm_semaphore = asyncio.Semaphore(1)
+        self.retriever = retriever
 
+    async def routeur_initial(self, state: AgentState):
+        question = state["messages"][0].content if hasattr(state["messages"][0], 'content') else str(state["messages"][0])
+        
+        prompt = f"""Tu es un routeur.
+        Question: {question}
+        La question demande-t-elle un calcul, un comptage ou une statistique sur des bases de données de mobilité ?
+        Réponds uniquement par 'OUI' ou 'NON'."""
+        
+        reponse = await self.agent.llm.acomplete(prompt)
 
+        texte = reponse.text.strip().upper()
+        
+        trace = [f"--- ROUTEUR PROMPT ---\n{prompt}", f"--- ROUTEUR RÉPONSE ---\n{reponse.text}"]
+        
+        if "OUI" in texte:
+            return {"next_step": "pandas_avec_rag", "reflexions": trace}
+        else:
+            return {"next_step": "rag_seul", "reflexions": trace}
+      
+
+    async def recherche_lexique(self, state: AgentState):
+        question = state["messages"][0].content if hasattr(state["messages"][0], 'content') else str(state["messages"][0])
+        etape_precedente = state.get("next_step", "pandas_avec_rag")
+        
+        docs = self.retriever.retrieve(question)
+        contexte = "\n".join([doc.text for doc in docs])
+        
+        if etape_precedente == "rag_seul":
+            prompt = f"""Réponds à la question en utilisant le contexte fourni, synthétise la réponse.
+            Contexte: {contexte}
+            Question: {question}"""
+            
+            reponse = await self.agent.llm.acomplete(prompt)
+                
+            return {"messages": [reponse.text], "next_step": "end"}
     
+        elif etape_precedente == "generation":
+            stat = state["messages"][-1].content if hasattr(state["messages"][-1], 'content') else str(state["messages"][-1])
+            
+            prompt = f"""Tu es un expert en mobilité urbaine à Montréal.
+            Tu viens de calculer avec précision la donnée suivante à partir des bases de données de la ville : {stat}
+            
+            Ce chiffre est la vérité absolue et constitue la réponse directe à la question. Ne cherche pas à le vérifier dans le glossaire.
+            
+            Question de l'utilisateur : {question}
+            
+            Contexte issu du glossaire (à utiliser UNIQUEMENT pour enrichir les définitions ou expliquer le phénomène) : 
+            {contexte}
+            
+            Rédige une synthèse fluide en langage naturel. Intègre la statistique ({stat}) et utilise le contexte pour donner du sens à ce chiffre."""
+            
+            reponse = await self.agent.llm.acomplete(prompt)
+                
+            return {"messages": [reponse.text], "next_step": "end"}
+            
+        else:
+            message_contexte = f"INFO GLOSSAIRE POUR PANDAS: {contexte}"
+            return {"messages": [message_contexte], "next_step": "assistant"}
+        
     async def call_model(self, state: AgentState):
         historique = state["messages"]
         question_initiale = historique[0].content if hasattr(historique[0], 'content') else str(historique[0])
@@ -54,64 +111,47 @@ class Nodes:
         
         Code Python :"""
     
-        async with self.llm_semaphore:
-            response = await self.agent.llm.acomplete(prompt)
-            print(response)
+        response = await self.agent.llm.acomplete(prompt)
+        trace = [f"--- ANALYSTE PROMPT ---\n{prompt}", f"--- ANALYSTE RÉPONSE ---\n{response.text}"]
             
         return {
             "messages": [response.text.strip()], 
-            "next_step": "execute" 
+            "next_step": "execute",
+            "reflexions": trace
         }
-        """
-        user_input = state["messages"][-1]
-        if hasattr(user_input, 'content'):
-            user_input = user_input.content
-                
-        # Routage direct (Sans appel LLM coûteux)
-        if any(keyword in user_input.lower() for keyword in ["nid-de-poule", "311"]):
-            # Note: query() est souvent synchrone, pas besoin de semaphore ici
-            response = self.engines["311"].query(user_input)
-            return {"messages": [str(response)], "next_step": "end"}
-    
-        # Appel Agent avec protection stricte
-        async with self.llm_semaphore:
-            print("--- Entrée dans le Sémaphore (Verrouillé) ---")
-            try:
-                response = await self.agent.run(user_input)
-                
-                # PAUSE OBLIGATOIRE avant de libérer le verrou
-                # Cela force Groq à respirer pendant 3 secondes avant la prochaine requête
-                await asyncio.sleep(3) 
-                
-                return {
-                    "messages": [response.response], 
-                    "next_step": "check_syntax"
-                }
-            finally:
-                print("--- Sortie du Sémaphore (Libéré) ---")
-        """
+
     def check_pandas_syntax(self, state: AgentState):
         """Vérifie le format du code avant exécution."""
         last_msg = str(state["messages"][-1].content)
-        
+        trace = ["--- ANALYSTE SYNTAXE ---\n{NOT OK}"]
         # Détection des erreurs de format
         if "df =" in last_msg :
             return {
                 "messages": ["ERREUR : Format invalide. Ne pas utiliser 'df ='"],
-                "next_step": "retry"
+                "next_step": "retry",
+                "reflexions": trace
             }
         if  "```" in last_msg:
             return {
                 "messages": ["ERREUR : Format invalide. Ne pas utiliser ``` ni de markdown."],
-                "next_step": "retry"
+                "next_step": "retry",
+                "reflexions": trace
             }
     
         if  'resultat' not in last_msg:
             return {
                 "messages": ["ERREUR : Il est nécessaire d'enregistrer le résultat dans une variable nommée resultat"],
-                "next_step": "retry"
+                "next_step": "retry",
+                "reflexions": trace
             }
-        return {"next_step": "execute"}
+        
+        trace = ["--- ANALYSTE SYNTAXE ---\n{OK}"]
+            
+        return {
+            "next_step": "execute",
+            "reflexions": trace
+        }
+
     
 
 
@@ -138,7 +178,7 @@ class Nodes:
     
             return {
                 "messages": [f"Le résultat de l'analyse est : {final_val}"],
-                "next_step": "end"
+                "next_step": "generation"
             }
         except Exception as e:
             return {

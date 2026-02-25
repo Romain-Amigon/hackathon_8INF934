@@ -10,14 +10,14 @@ def build_db():
     conn = sqlite3.connect(db_path)
     
     # 1. Charger les collisions
-    if os.path.exists(f"{data_dir}/collisions.csv"):
-        df_coll = pd.read_csv(f"{data_dir}/collisions.csv")
+    if os.path.exists(f"{data_dir}/collisions_clean.csv"):
+        df_coll = pd.read_csv(f"{data_dir}/collisions_clean.csv")
         df_coll.to_sql("collisions", conn, if_exists="replace", index=False)
         print("[OK] Table 'collisions' créée.")
 
     # 2. Charger le 311
-    if os.path.exists(f"{data_dir}/requetes_311_all_time.csv"):
-        df_311 = pd.read_csv(f"{data_dir}/requetes_311_all_time.csv", low_memory=False)
+    if os.path.exists(f"{data_dir}/requetes_311.csv"):
+        df_311 = pd.read_csv(f"{data_dir}/requetes_311.csv", low_memory=False)
         df_311.to_sql("requetes_311", conn, if_exists="replace", index=False)
         print("[OK] Table 'requetes_311' créée.")
     
