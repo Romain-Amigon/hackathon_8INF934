@@ -5,7 +5,7 @@ fichiers = [
     'requetes311_2016-2018.csv',
     'requetes311_2017-2018.csv',
     'requetes311_2019-2021.csv',
-    'requetes311_today.csv'
+    'requetes311.csv'
 ]
 
 categories = [
@@ -42,4 +42,4 @@ df_final = df_final.drop_duplicates()
 df_final['DATE_DERNIER_STATUT'] = pd.to_datetime(df_final['DATE_DERNIER_STATUT'], errors='coerce')
 date_min = df_final['DATE_DERNIER_STATUT'].min()
 print(date_min)
-df_final.to_csv('requetes_311.csv', index=False)
+df_final.to_csv('requetes_311_all_time.csv', index=False)
