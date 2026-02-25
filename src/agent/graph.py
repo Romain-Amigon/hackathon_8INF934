@@ -95,7 +95,7 @@ if __name__ == "__main__":
     app = builder.compile() 
     
     # Question de test basée sur les critères du hackathon (Météo + Collisions)
-    question = "Quels types de requêtes 311 augmentent quand la température passe sous 0°C ?"
+    question = "Combien d'accidents y a-t-il eu de moins en 2020 par rapport à 2013 ?"
     
     inputs = {"messages": [HumanMessage(content=question)]}
     
