@@ -21,7 +21,12 @@ from llama_index.core.tools import QueryEngineTool, ToolMetadata
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, load_index_from_storage, Settings
 
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-load_dotenv()
+from pathlib import Path
+racine_projet = Path(__file__).resolve().parents[2]
+chemin_env = racine_projet / ".env"
+
+# Force le chargement de CE fichier spécifique
+load_dotenv(dotenv_path=chemin_env)
 nest_asyncio.apply()
 
 from llama_index.core.base.llms.types import ChatMessage, CompletionResponse
