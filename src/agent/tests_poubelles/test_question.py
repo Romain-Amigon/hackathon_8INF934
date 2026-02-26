@@ -9,9 +9,9 @@ import pandas as pd
 from llama_index.experimental.query_engine import PandasQueryEngine
 from llama_index.llms.ollama import Ollama
 
-df_311 = pd.read_csv("../../data/raw/requetes_311.csv")
+df_311 = pd.read_csv("../../data/raw/requetes_311_all_time.csv")
 
-llm = Ollama(model="llama3", request_timeout=3000.0)
+llm = Ollama(model="qwen2.5", request_timeout=600.0)
 
 instruction_stricte = """\
 You are working with a pandas DataFrame named `df`.

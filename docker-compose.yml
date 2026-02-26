@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    container_name: mobility_app
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    network_mode: "host"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: streamlit run /app/src/ui/app.py --server.port 8501

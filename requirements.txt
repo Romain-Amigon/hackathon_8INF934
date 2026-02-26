@@ -1,8 +1,38 @@
-streamlit
+transformers<=4.43.0
+sentence-transformers<=2.7.0
 pandas
-llama-index
+sqlalchemy
+llama-index==0.10.58
 llama-index-llms-ollama
+llama-index-embeddings-huggingface
+llama-index-experimental
+
+nest-asyncio
+streamlit
+plotly
 langgraph
-langchain
-langchain-ollama
-ckanapi
+
+
+folium
+streamlit-folium
+wordcloud
+matplotlib
+
+
+# For audio processing
+SpeechRecognition==3.10.1
+gTTS==2.5.1
+llama-index-llms-groq
+
+python-dotenv          # Pour load_dotenv()
+pydantic               # Pour la classe RateLimitedGroq (Field)
+pydantic-settings      # Souvent requis avec les dernières versions de LlamaIndex
+asyncio                # (Généralement inclus, mais bon à confirmer)
+pydub                  # Si tu manipules des fichiers audio (très probable pour l'UI)
+pydeck                 # Requis par ton code UI (st.pydeck_chart)
+
+plotly 
+pillow
+scikit-learn
+scipy
+numpy

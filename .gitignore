@@ -1,4 +1,16 @@
 .env
+.venv/
 *.csv
 
 data/raw/stm/
+todo
+mobility.db
+
+.DS_Store
+__pycache__
+auto_answer.mp3
+temp_vocal_auto.wav
+
+data/
+
+.zip
