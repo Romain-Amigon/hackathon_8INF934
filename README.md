@@ -1,101 +1,102 @@
-# hackathon_8INF934
----
-## DATA
+# hackathon_8INF934 - Mobility Copilot
 
+## Quickstart
 
+### Pré-requis
 
+- Ollama installé et configuré [Download Ollama](https://ollama.com/download)
+- Un environnement python avec les modules nécessaires au projet ``pip install -r requirements``
+- OU pour une carte Nvidia utiliser le conteneur Docker ``docker compose up -d --build``
 
-Transports en commun : https://www.stm.info/fr/a-propos/developpeurs/description-des-donnees-disponibles?utm_source=chatgpt.com
-accidents : https://www.donneesquebec.ca/recherche/dataset/vmtl-collisions-routieres
+### Télécharger les données
 
-Météo
-
-Fréquentations (google maps ??)
-
-
-date des data
-```plaintext
-collisions : 2012 a 2021
-
-311: 2016 a 2026  (récupérer en local)
-
-weather : 2012 a 2026
+```bash
+python3 ./download_datasets.py
 ```
 
+### Lancement de l'interface utilisateur
 
-penser a citer la source des data
-```plaintext
-Attribution de la source à la Ville de Montréal
-Lorsque vous réutilisez nos données et contenus, vous devez respecter les conditions suivantes :
-
-Vous devez créditer les données et les contenus que vous utilisez et préciser si des modifications ont été effectuées ou si des interprétations en ont été tirées.
-
-Vous ne pouvez pas indiquer ou suggérer que la Ville de Montréal vous soutient ou endosse votre usage de ses données et ses contenus.
-
-Cette condition s’applique également à l’intégration des données de la Ville de Montréal à une base de données dont vous ou votre organisation êtes propriétaire.
-
-Vous ne pouvez pas restreindre l’accès aux données et contenus originaux partagés par la Ville de Montréal, que ce soit soit sous la forme de conditions légales ou de mesures techniques.
-Notre licence s'inspire et est conforme aux principes et à la définition du Savoir Libre de l’Open Knowledge Foundation. Elle a été adoptée par les instances de la Ville de Montréal le 27 février 2014 par la résolution CG14 0091 du Conseil d'agglomération. Ce choix vise à faciliter la réutilisation des données et à encourager les utilisateurs et utilisatrices des données ouvertes à redonner les bénéfices qu’ils en retirent à la communauté.
-
-Comment citer les données ouvertes
-Nous vous suggérons quelques façons de citer les données et les contenus mis à disposition par la Ville de Montréal. Nous vous invitons à les adapter à vos besoins et aux particularités de votre projet.
-
-Rapports et documents académiques
-Ville de Montréal. (Date de la dernière mise à jour de la ressource). Nom de l’ensemble de données [Ensemble de données]. Données ouvertes de la Ville de Montréal. Lien vers l’ensemble de données
-Ville de Montréal. (2023). Indicateurs de condition des chaussées du réseau routier [Ensemble de données]. Données ouvertes de la Ville de Montréal. https://donnees.montreal.ca/dataset/condition-chaussees-reseau-routier
-Cet exemple est structuré à titre indicatif selon la norme APA 7e génération. D’autres normes bibliographiques, comme l’EEE, pourraient également être employées.
-
-Tout autre usage (incluant les solutions numériques)
-Avec les données Nom de l’ensemble de données tirées du site web des données ouvertes de la Ville de Montréal en date du Date de consultation.
-Avec les données Indicateurs de condition des chaussées du réseau routier tirées du site web des données ouvertes de la Ville de Montréal en date du 30 mars 2023.
+```bash
+streamlit run ./src/ui/app.py
 ```
 
+## Architecture du projet
 
-### NLP
-requetes générales : https://donnees.montreal.ca/dataset/requete-311
+Ah, je vois ! Ton visualiseur semble ignorer les sauts de ligne simples et tout "aplatir". C'est un problème classique si le texte n'est pas strictement encadré par des balises de bloc de code.
 
----
-## Technologies
-LangGraph (Orchestration) : C'est le choix idéal pour implémenter les cycles de "réflexion" et de "contradiction" demandés. Contrairement à une chaîne RAG linéaire, LangGraph permet de créer des boucles de rétroaction où un agent peut valider une requête SQL avant de l'exécuter.
+Pour forcer l'affichage en mode "arborescence" (monospace) dans n'importe quel lecteur Markdown, utilise exactement ce bloc ci-dessous :
 
-LlamaIndex (Gestion des données) : Utilisez-le pour charger vos fichiers (CSV des collisions, 311) et les transformer en "Query Engines" prêts à l'emploi. Il est 40% plus rapide que les méthodes classiques pour la récupération de documents.
+```text
+src/
+├── agent/
+│   ├── api_groq.py
+│   ├── graph.py
+│   ├── main.py
+│   ├── nodes.py
+│   ├── state.py
+│   └── tests_poubelles/
+│       ├── gemini.py
+│       ├── ollama.py
+│       └── test_question.py
+├── data_pipeline/
+│   ├── ingestion.py
+│   └── transform.py
+├── reports/
+│   ├── briefing.py
+│   ├── formatter.py
+│   ├── hotspots.py
+│   ├── trends.py
+│   └── weak_signals.py
+└── ui/
+    ├── app.py
+    ├── question_example.wav
+    ├── README_Sentence.md
+    ├── sentence.py
+    └── testSentence.py
 
-OLlama pour un llm local pour RGPD et éviter clé payante
+```
 
-Modèle,             Spécialité,                         Recommandation pour ce projet
-qwen2.5-coder:7b,   Écriture de code (Python/SQL),      Idéal pour le nœud de génération Pandas.
-llama3.1:8b,        Raisonnement général et RAG,        "Très bon pour l'orchestration LangGraph, la détection d'ambiguïté et le contradicteur."
-mistral:7b,                                             Suivi d'instructions,Bonne alternative de secours si Llama est trop lent sur votre machine.
----
-## Architecture 
+### 1. Vue d'ensemble
+Notre application est un assistant analytique "data-grounded" qui croise trois sources de données majeures de la Ville de Montréal :
+- **Requêtes 311** (Nids-de-poule, déneigement, etc.)
+- **Collisions routières** (Localisation, gravité, victimes)
+- **Données météorologiques** (Températures, précipitations, neige)
 
-Prototype
+L'architecture repose sur un **Agent RAG (Retrieval-Augmented Generation)** supervisé par un graphe d'états.
 
-mobility-copilot/
-│
-├── data/
-│   ├── raw/                  
-│   └── vector_store/         
-│
-├── src/
-│   ├── __init__.py
-│   ├── ui/
-│   │   ├── __init__.py
-│   │   └── app.py            
-│   ├── agent/
-│   │   ├── __init__.py
-│   │   ├── graph.py          
-│   │   └── nodes.py          
-│   └── data_pipeline/
-│       ├── __init__.py
-│       └── ingestion.py      
-│
-├── .env                      
-├── .gitignore                
-├── requirements.txt          
-└── README.md
+### 2. Organisation des Fichiers (`src/`)
 
----
-## Vérification
+### `agent/` (Cœur de l'IA)
+C'est ici que réside l'intelligence du système.
+- **`state.py`** : Définit l'état partagé (`AgentState`) qui circule entre les nœuds (historique des messages, code généré, erreurs, etc.).
+- **`graph.py`** : Définit le flux de travail avec **LangGraph**. Le cycle est : `assistant` ➔ `validateur` ➔ `executeur` ➔ `disputeur`.
+- **`nodes.py`** : Contient la logique métier de chaque étape :
+    - **Assistant** : Génère du code Python/Pandas via l'LLM (Groq/Llama 3.1).
+    - **Validateur** : Vérifie que le code produit respecte les consignes de sécurité et de format.
+    - **Exécuteur** : Lance réellement le code sur les DataFrames chargés en mémoire.
+    - **Disputeur (Mode Contradicteur)** : Analyse de manière critique le résultat pour détecter d'éventuelles erreurs ou limites avant la réponse finale.
+- **`api_groq.py` & `main.py`** : Points d'entrée pour l'initialisation de l'LLM, des moteurs de requête LlamaIndex (`PandasQueryEngine`) et des outils.
 
-Faire un dataset de vérif {question : réponse attendue} et comparer la réponse attendue par rapport à celle recue en cos_similarity dans l'espace emb
+### `reports/` (Intelligence Analytique)
+Modules spécialisés dans le traitement statistique lourd.
+- **`hotspots.py`** : Identifie les zones critiques via un clustering spatial (**K-Means**) pour les collisions et des agrégations par arrondissement pour le 311.
+- **`trends.py`** : Calcule les évolutions temporelles (YoY : Année sur Année, MoM : Mois sur Mois) et détecte les pics horaires.
+- **`weak_signals.py`** : Détecte les **signaux faibles** via des régressions linéaires (croissance lente mais régulière) et des anomalies par **Z-score**.
+- **`briefing.py`** : Agrège les résultats des modules précédents pour générer une synthèse hebdomadaire structurée.
+
+### `data_pipeline/` (Gestion des données)
+- **`ingestion.py`** : Chargement des fichiers CSV bruts.
+- **`transform.py`** : Nettoyage, normalisation des types (dates, numérique) et préparation des jointures.
+
+### `ui/` (Interface utilisateur)
+- **`app.py`** : Application **Streamlit** offrant un tableau de bord interactif (Heatmaps, graphiques de tendances) et un chat avec l'agent.
+
+### 3. Flux de Travail d'une Requête (Workflow)
+
+1. **Input** : L'utilisateur pose une question (ex: "Impact de la neige sur les accidents").
+2. **RAG / Planning** : L'agent consulte les descriptions des datasets (métadonnées) pour choisir les colonnes pertinentes.
+3. **Génération de Code** : L'LLM produit un script Pandas effectuant la jointure et le filtrage.
+4. **Validation** : Le système vérifie que le code n'est pas dangereux et qu'il stocke le résultat dans la variable attendue.
+5. **Exécution** : Le code est exécuté sur les données réelles de Montréal.
+6. **Contradiction** : Un deuxième appel LLM vérifie si le résultat semble cohérent ou s'il y a des risques d'interprétation.
+7. **Output** : La réponse est affichée avec ses "preuves" (chiffres exacts).
