@@ -70,7 +70,7 @@ class Nodes:
             Tu viens de calculer avec précision la donnée suivante à partir des bases de données de la ville : {stat}
             
             Ce chiffre est la vérité absolue et constitue la réponse directe à la question. Ne cherche pas à le vérifier dans le glossaire.
-            Si le message indique qu'il y a erreur précise bien dans ta réponse qu'il y a eu une erreur.            
+            Si le dernier message est 'Je n'ai pas réussi à extraire cette donnée après plusieurs tentatives. Pouvez-vous reformuler la question ?' précise bien dans ta réponse qu'il y a eu une erreur.            
             Question de l'utilisateur : {question}
             
             Contexte issu du glossaire (à utiliser UNIQUEMENT pour enrichir les définitions ou expliquer le phénomène) : 
