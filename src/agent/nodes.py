@@ -70,7 +70,7 @@ class Nodes:
             Tu viens de calculer avec précision la donnée suivante à partir des bases de données de la ville : {stat}
             
             Ce chiffre est la vérité absolue et constitue la réponse directe à la question. Ne cherche pas à le vérifier dans le glossaire.
-            
+            Si le message indique qu'il y a erreur précise bien dans ta réponse qu'il y a eu une erreur.            
             Question de l'utilisateur : {question}
             
             Contexte issu du glossaire (à utiliser UNIQUEMENT pour enrichir les définitions ou expliquer le phénomène) : 
@@ -95,7 +95,7 @@ class Nodes:
             trace = ["--- ARRÊT FORCÉ ---\nLimite d'itérations atteinte pour la génération de code."]
             return {
                 "messages": [message_echec],
-                "next_step": "end",
+                "next_step": "generation",
                 "iteration_count": iterations + 1,
                 "reflexions": trace
             }
@@ -175,6 +175,7 @@ class Nodes:
                 "reflexions": trace
 
             }
+        """
         if  "```" in last_msg:
             error_msg = "ERREUR : Format invalide. Ne pas utiliser ``` ni de markdown."
             logger.warning(f"❌ SYNTAXE: {error_msg}")
@@ -184,7 +185,7 @@ class Nodes:
                 "reflexions": trace
 
             }
-    
+        """
         if  'resultat' not in last_msg:
             error_msg = "ERREUR : Il est nécessaire d'enregistrer le résultat dans une variable nommée resultat"
             logger.warning(f"❌ SYNTAXE: {error_msg}")

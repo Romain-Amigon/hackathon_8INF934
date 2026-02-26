@@ -46,6 +46,7 @@ def create_graph(agent_instance, engines_dict, retriever=None):
         lambda state: state["next_step"],
         {
             "execute": "validateur",
+            "generation": "rag_textuel",
             "end": END
         }
     )    
