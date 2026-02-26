@@ -32,3 +32,6 @@ pydeck                 # Requis par ton code UI (st.pydeck_chart)
 
 plotly 
 pillow
+scikit-learn
+scipy
+numpy

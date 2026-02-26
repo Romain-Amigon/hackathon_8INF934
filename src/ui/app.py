@@ -26,6 +26,7 @@ if str(ROOT) not in sys.path:
 
 # Maintenant tu peux importer normalement
 from src.agent.main import setup_agent, run
+from src.reports import generate_briefing
 
 
 # ============================================================
@@ -233,7 +234,8 @@ def pearson(a: pd.Series, b: pd.Series) -> float | None:
 # ============================================================
 # 8) UI — TABS
 # ============================================================
-tabs = st.tabs(["Collisions (Carte)", "311 (Motifs)", "Météo ↔ Incidents", "Question (NLSQL)", "Question (NLSQL) Audio"])
+tabs = st.tabs(["Collisions (Carte)", "311 (Motifs)", "Météo ↔ Incidents", "Question (NLSQL)", "Question (NLSQL) Audio", "Briefing"])
+
 
 
 # ============================================================
@@ -489,33 +491,106 @@ with tabs[4]:
                 f.write(uploaded_audio.getbuffer())
             
             transcript = voice_manager.toText(temp_path)
-            # Dans le Tab 5, remplace la boucle de retry par ceci :
+            
             if transcript and "[Error]" not in transcript:
                 st.write("Analyse via LangGraph...")
                 try:
                     import asyncio
-                    # Appel à ton agent avec le transcript vocal
                     final_response = asyncio.run(run(llm, transcript, engines, system_prompt))
                     
                     if final_response:
                         st.write("Génération de la réponse vocale...")
                         voice_manager.toSpeech(final_response, audio_file_path)
-                        status.update(label="Analyse terminée !", state="complete")
+                        status.update(label="✅ Analyse terminée !", state="complete")
                 except Exception as e:
                     st.error(f"Erreur agent: {e}")
-                    # --- AFFICHAGE ET LECTURE (HORS DU STATUS) ---
-                    if final_response:
-                        # On affiche la conversation
-                        st.chat_message("user").write(transcript)
-                        st.chat_message("assistant").write(final_response)
-                        
-                        time.sleep(0.5)
-                        
-                        # Lecture du fichier
-                        if Path(audio_file_path).exists():
-                            with open(audio_file_path, "rb") as audio_file:
-                                audio_bytes = audio_file.read()
-                            
-                            st.audio(audio_bytes, format="audio/mpeg", autoplay=False)
+                    import traceback
+                    st.write(traceback.format_exc())
+        
+        # --- AFFICHAGE DE LA CONVERSATION (APRÈS LE STATUS) ---
+        if transcript and "[Error]" not in transcript:
+            st.markdown("---")
+            st.subheader("📝 Conversation")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.chat_message("user").write(f"**Votre question :**\n\n{transcript}")
+            with col2:
+                if final_response:
+                    st.chat_message("assistant").write(f"**Réponse de l'assistant :**\n\n{final_response}")
+                else:
+                    st.info("En attente de la réponse...")
+            
+            # --- LECTURE AUDIO ---
+            if final_response and Path(audio_file_path).exists():
+                st.markdown("---")
+                st.subheader("🔊 Écouter la réponse")
+                with open(audio_file_path, "rb") as audio_file:
+                    audio_bytes = audio_file.read()
+                st.audio(audio_bytes, format="audio/mpeg", autoplay=False)
+
+# ============================================================
+# 14) TAB 6 — BRIEFINGS AUTOMATIQUES
+# ============================================================
+
+with tabs[5]:
+    st.subheader("📋 Briefings Automatiques")
+    
+    # Charger les données une seule fois
+    @st.cache_data(show_spinner=False)
+    def load_full_datasets():
+        """Charge les datasets complets pour les briefings"""
+        df_coll = pd.read_sql_query("SELECT * FROM collisions", engine)
+        df_311 = pd.read_sql_query("SELECT * FROM requetes_311", engine)
+        return df_coll, df_311
+    
+    df_coll_full, df_311_full = load_full_datasets()
+    
+    # Sélection du type de briefing
+    c1, c2 = st.columns([1.5, 1])
+    with c1:
+        briefing_type = st.radio("Type de briefing", options=['daily', 'weekly', 'monthly'], 
+                                horizontal=True, key='briefing_type')
+    with c2:
+        audience = st.radio("Audience", options=['Grand Public', 'Municipalité'], 
+                           horizontal=True, key='briefing_audience',
+                           label_visibility="collapsed")
+    
+    audience_map = {'Grand Public': 'public', 'Municipalité': 'municipality'}
+    
+    # Bouton pour générer
+    if st.button("📊 Générer le Briefing", key="gen_briefing", use_container_width=True):
+        with st.spinner("Génération du briefing en cours..."):
+            try:
+                briefing_content = generate_briefing(
+                    df_coll_full,
+                    df_311_full,
+                    briefing_type=briefing_type,
+                    target_audience=audience_map[audience]
+                )
+                
+                # Affichage du briefing
+                st.markdown(briefing_content)
+                
+                # Options d'export
+                st.divider()
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.download_button(
+                        label="📥 Télécharger en Markdown",
+                        data=briefing_content,
+                        file_name=f"briefing_{briefing_type}_{audience_map[audience]}.md",
+                        mime="text/markdown",
+                        key="dl_md"
+                    )
+                
+                with col2:
+                    st.success("✅ Briefing généré avec succès!")
+                    
+            except Exception as e:
+                st.error(f"Erreur lors de la génération : {str(e)}")
+                import traceback
+                st.write(traceback.format_exc())
 
 st.caption("Hackathon IA 2026 - Prototype fonctionnel")
