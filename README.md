@@ -17,6 +17,12 @@ python3 ./transform.py
 
 Sinon vous pouvez utiliser rag.zip et raw.zip tous les deux à dézipper dans ./data/
 
+pour les récupérer
+
+https://drive.google.com/file/d/1LbSWi2Ck5pe3wvsOyab6ZQKuyiFrbaWP/view?usp=sharing
+https://drive.google.com/file/d/1UUtugta6rHatU5Yh_ml0yxaTyINR43r1/view?usp=sharing
+
+
 ### Lancement de l'interface utilisateur
 
 ```bash
