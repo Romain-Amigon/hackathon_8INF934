@@ -31,6 +31,7 @@ class Nodes:
         
         Si la question demande de compter ("combien"), de faire une moyenne, de comparer des dates, ou d'obtenir un chiffre précis sur ces sujets, réponds "OUI".
         Si la question demande une définition, un règlement ou une explication générale (ex: "qu'est-ce qu'un accident grave ?"), réponds "NON".
+        Si la question ne concerne pas Montreal de façon explicite, donc une autre ville est nommé, réponds "NON".
         
         Réponds UNIQUEMENT par 'OUI' ou 'NON'."""
         
@@ -260,9 +261,9 @@ class Nodes:
 
             }
         except Exception as e:
-            logger.error(f"❌ EXECUTEUR: Erreur d'exécution: {str(e)}")
+            erreur_courte = str(e)[:300]
             return {
-                "messages": [f"ERREUR D'EXÉCUTION : {str(e)}"],
+                "messages": [f"ERREUR D'EXÉCUTION : {erreur_courte}"],
                 "next_step": "retry"
             }
     

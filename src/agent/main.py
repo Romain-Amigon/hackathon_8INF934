@@ -4,6 +4,13 @@ import nest_asyncio
 import pandas as pd
 from dotenv import load_dotenv
 
+import os, sys
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+root_dir = os.path.dirname(src_dir)
+
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 from src.agent.graph import create_graph
 from src.agent.nodes import Nodes
 
