@@ -38,8 +38,15 @@ def create_graph(agent_instance, engines_dict, retriever=None):
         }
     )
     
-    workflow.add_edge("assistant", "validateur")
-    
+    #workflow.add_edge("assistant", "validateur")
+    workflow.add_conditional_edges(
+        "assistant",
+        lambda state: state["next_step"],
+        {
+            "execute": "validateur",
+            "end": END
+        }
+    )    
     workflow.add_conditional_edges(
         "validateur",
         lambda state: state["next_step"],
