@@ -22,6 +22,22 @@ pour les récupérer
 https://drive.google.com/file/d/1LbSWi2Ck5pe3wvsOyab6ZQKuyiFrbaWP/view?usp=sharing
 https://drive.google.com/file/d/1UUtugta6rHatU5Yh_ml0yxaTyINR43r1/view?usp=sharing
 
+voici la structure des données :
+ROOT/
+├── data/
+│   
+│   ├── rag/
+│         ├── vectors/
+│    		 │      ├── …
+│		 ├── ... 
+│   └── raw/
+│       ├── collisions.csv
+│       ├── stm.cv
+│       └── requetes_311.csv
+        ├── weather_montreal.csv
+├── src/
+│   ├── agent/
+│   └── ...
 
 ### Lancement de l'interface utilisateur
 

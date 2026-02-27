@@ -91,7 +91,7 @@ class Nodes:
         time.sleep(0.1)
         iterations = state.get("iteration_count", 0)
         
-        if iterations >= 3:
+        if iterations >= 2:
             message_echec = "Je n'ai pas réussi à extraire cette donnée après plusieurs tentatives. Pouvez-vous reformuler la question ?"
             trace = ["--- ARRÊT FORCÉ ---\nLimite d'itérations atteinte pour la génération de code."]
             return {
@@ -117,7 +117,7 @@ class Nodes:
             logger.warning(f"⚠️  RETRY MODE: {dernier_feedback[:80]}...")
     
         prompt = f"""Tu es un analyste de données expert pour la ville de Montréal.
-        Réponds UNIQUEMENT avec des lignes de code Python, n'utilise pas ```
+        Réponds UNIQUEMENT avec des lignes de code Python.
         
         CONSIGNES STRICTES ET OBLIGATOIRES :
         - Syntaxe OBLIGATOIRE pour les dates : df_nom['nom_col'] = pd.to_datetime(df_nom['nom_col'], format='mixed', errors='coerce')
@@ -127,6 +127,7 @@ class Nodes:
         
         CONSIGNES SPATIALES ET DE DISTANCE (ÉVITER LES CRASHS MÉMOIRE) :
         - SI ET SEULEMENT SI la question parle explicitement de distance ou de proximité (ex: "à moins de 200m"), tu DOIS filtrer ton DataFrame principal puis utiliser filtrer_proches(df_points, df_cibles, rayon).
+        - SI tu utilises filtrer_proches ne met pas de notes pour le dire, donne juste le code python.
         - SI LA QUESTION NE PARLE PAS DE DISTANCE, N'UTILISE SURTOUT PAS filtrer_proches ni df_metro. Fais un simple comptage ou filtre Pandas.
         - Exemple  : 
             df_coll['DATE'] = pd.to_datetime(df_coll['DATE'], format='mixed', errors='coerce')

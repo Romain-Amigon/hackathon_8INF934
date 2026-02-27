@@ -127,7 +127,7 @@ def setup_agent():
         system_prompt="Tu es un analyste de données strict. Tu utilises tes outils un par un. Ne génère JAMAIS de texte à trous. Attends le retour numérique de l'outil avant de formuler ta réponse finale.",
         tools=tools,
         llm=llm,
-        max_iterations=4
+        max_iterations=3
     ), engines
 
 
